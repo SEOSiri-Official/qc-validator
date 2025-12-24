@@ -1,4 +1,4 @@
-'use client'; // <-- Keep this to use the hook
+'use client'; 
 
 import { usePathname } from 'next/navigation'; // <-- Import the hook
 import type { Metadata } from "next";
@@ -8,6 +8,7 @@ import { Roboto } from "next/font/google";
 import "./globals.css";
 import Link from "next/link";
 import Script from 'next/script'; 
+import { SpeedInsights } from "@vercel/speed-insights/next"
 // 2. CONFIGURE THE FONT (Remains the same)
 const roboto = Roboto({
   weight: ['400', '700'],
@@ -68,6 +69,7 @@ export default function RootLayout({
         
         <div className="flex-grow">
           {children}
+          <SpeedInsights />
         </div>
         
         {/* --- [NEW] CONDITIONAL FOOTER RENDERING --- */}
