@@ -256,49 +256,52 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      {/* --- FOOTER --- */}
-      <footer className="bg-white border-t py-16">
+     <footer className="bg-white border-t py-16">
         <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-4 gap-12">
+            
+            {/* Column 1: Logo & Tagline */}
             <div className="col-span-1">
                 <div className="flex items-center gap-2 mb-6">
-                   <Link href="/" className="flex items-center gap-2">
-    <div className="scale-125 origin-left">
-        <Logo />
-    </div>
-    {/* Remove the extra text if Logo component already has text, or keep it if Logo is icon-only */}
-</Link>
+                   <div className="scale-125 origin-left">
+                       <Logo />
+                   </div>
                 </div>
                 <p className="text-sm text-gray-500 leading-relaxed">
                     We digitize trust. The world's first open-source standard for distributed quality control and trade compliance.
                 </p>
             </div>
+
+            {/* Column 2: Platform Links */}
             <div>
                 <h4 className="font-bold mb-6 text-gray-900">Platform</h4>
                 <ul className="space-y-4 text-sm text-gray-500">
-                    <li><Link href="/dashboard" className="hover:text-indigo-600">Dashboard</Link></li>
-                    <li><Link href="/marketplace" className="hover:text-indigo-600">Town Hall</Link></li>
-                    <li><Link href="/standards" className="hover:text-indigo-600">Standards Hub</Link></li>
-                    <li><Link href="/faq" className="hover:text-indigo-600">Help & FAQ</Link></li>
-
+                    <li><Link href="/dashboard" className="hover:text-indigo-600 hover:underline">Dashboard</Link></li>
+                    <li><Link href="/marketplace" className="hover:text-indigo-600 hover:underline">Town Hall</Link></li>
+                    <li><Link href="/standards" className="hover:text-indigo-600 hover:underline">Standards Hub</Link></li>
+                    <li><Link href="/faq" className="hover:text-indigo-600 hover:underline">Help & FAQ</Link></li>
                 </ul>
             </div>
-          <div>
-{/* Legal Links */}
-  <h4 className="text-white font-bold mb-4 text-sm uppercase">Legal</h4>
-  {/* CHANGE THE COLOR CLASS ON THIS LINE */}
-  <ul className="space-y-2 text-xs text-gray-400"> 
-    <li><Link href="/legal/terms" className="hover:text-white hover:underline">Terms of Service</Link></li>
-    <li><Link href="/legal/privacy" className="hover:text-white hover:underline">Privacy Policy</Link></li>
-    <li><Link href="/legal/disclaimer" className="hover:text-white hover:underline">Liability Disclaimer</Link></li>
-    <li><Link href="/legal/compliance" className="hover:text-white hover:underline">Compliance Standards</Link></li>
-  </ul>
-</div>
+            
+            {/* Column 3: Legal Links */}
+            <div>
+              <h4 className="font-bold mb-6 text-gray-900">Legal</h4>
+              <ul className="space-y-4 text-sm text-gray-500"> 
+                <li><Link href="/legal/terms" className="hover:text-indigo-600 hover:underline">Terms of Service</Link></li>
+                <li><Link href="/legal/privacy" className="hover:text-indigo-600 hover:underline">Privacy Policy</Link></li>
+                <li><Link href="/legal/disclaimer" className="hover:text-indigo-600 hover:underline">Liability Disclaimer</Link></li>
+                <li><Link href="/legal/compliance" className="hover:text-indigo-600 hover:underline">Compliance Standards</Link></li>
+              </ul>
+            </div>
+
+            {/* Column 4: Connect */}
             <div>
                 <h4 className="font-bold mb-6 text-gray-900">Connect</h4>
-                <p className="text-sm text-gray-500 mb-2">info@seosiri.com</p>
-<p className="text-xs text-gray-400">
-  © {new Date().getFullYear()} SEOSiri. All rights reserved.
-</p>            </div>
+                <a href="mailto:info@seosiri.com" className="text-sm text-gray-500 mb-2 hover:text-indigo-600 hover:underline">info@seosiri.com</a>
+                <p className="text-xs text-gray-400 mt-4">
+                  © {new Date().getFullYear()} SEOSiri. All rights reserved.
+                </p>
+            </div>
+            
         </div>
       </footer>
     </div>
