@@ -1,21 +1,18 @@
 import admin from 'firebase-admin';
 import { getFirestore } from 'firebase-admin/firestore';
 
-// Assumes serviceAccountKey.json is in the project's root directory
-const serviceAccount = require('../../serviceAccountKey.json');
-
-// Initialize only if it hasn't been done already
+// Check if the app is already initialized
 if (!admin.apps.length) {
   try {
+    // Parse the service account key from the environment variable
+    const serviceAccount = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON!);
+    
     admin.initializeApp({
       credential: admin.credential.cert(serviceAccount)
     });
   } catch (error: any) {
-    console.error('Firebase Admin Init Error:', error.stack);
+    console.error('Firebase Admin Initialization Error:', error.stack);
   }
 }
 
-// Export the initialized admin instance and the firestore database
-const db = getFirestore();
-
-export { admin, db };
+export const db = getFirestore();
