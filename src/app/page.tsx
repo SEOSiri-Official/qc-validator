@@ -283,8 +283,10 @@ export default async function LandingPage() {
                 </ul>
             </div>
           <div>
-<h4 className="font-bold mb-6 text-gray-900">Legal</h4>
-  <ul className="space-y-2 text-xs text-indigo-200">
+{/* Legal Links */}
+  <h4 className="text-white font-bold mb-4 text-sm uppercase">Legal</h4>
+  {/* CHANGE THE COLOR CLASS ON THIS LINE */}
+  <ul className="space-y-2 text-xs text-gray-400"> 
     <li><Link href="/legal/terms" className="hover:text-white hover:underline">Terms of Service</Link></li>
     <li><Link href="/legal/privacy" className="hover:text-white hover:underline">Privacy Policy</Link></li>
     <li><Link href="/legal/disclaimer" className="hover:text-white hover:underline">Liability Disclaimer</Link></li>
