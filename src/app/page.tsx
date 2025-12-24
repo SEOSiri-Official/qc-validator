@@ -282,14 +282,15 @@ export default async function LandingPage() {
 
                 </ul>
             </div>
-            <div>
-                <h4 className="font-bold mb-6 text-gray-900">Legal</h4>
-                <ul className="space-y-4 text-sm text-gray-500">
-                    <li><Link href="/terms" className="hover:text-indigo-600">Terms of Service</Link></li>
-                    <li><Link href="/privacy" className="hover:text-indigo-600">Privacy Policy</Link></li>
-                    <li><Link href="/disclaimer" className="hover:text-indigo-600">Liability Disclaimer</Link></li>
-                </ul>
-            </div>
+          <div>
+  <h4 className="text-white font-bold mb-4 text-sm uppercase">Legal</h4>
+  <ul className="space-y-2 text-xs text-indigo-200">
+    <li><Link href="/legal/terms" className="hover:text-white hover:underline">Terms of Service</Link></li>
+    <li><Link href="/legal/privacy" className="hover:text-white hover:underline">Privacy Policy</Link></li>
+    <li><Link href="/legal/disclaimer" className="hover:text-white hover:underline">Liability Disclaimer</Link></li>
+    <li><Link href="/legal/compliance" className="hover:text-white hover:underline">Compliance Standards</Link></li>
+  </ul>
+</div>
             <div>
                 <h4 className="font-bold mb-6 text-gray-900">Connect</h4>
                 <p className="text-sm text-gray-500 mb-2">info@seosiri.com</p>
