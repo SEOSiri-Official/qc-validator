@@ -1,10 +1,8 @@
 import admin from 'firebase-admin';
 import { getFirestore } from 'firebase-admin/firestore';
 
-// Check if the app is already initialized
 if (!admin.apps.length) {
   try {
-    // Parse the service account key from the environment variable
     const serviceAccount = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON!);
     
     admin.initializeApp({
@@ -15,4 +13,7 @@ if (!admin.apps.length) {
   }
 }
 
-export const db = getFirestore();
+const db = getFirestore();
+
+// --- ADD 'admin' TO THE EXPORT ---
+export { db, admin };
