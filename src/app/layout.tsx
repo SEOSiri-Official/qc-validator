@@ -91,12 +91,14 @@ export default function RootLayout({
                     <li><Link href="/manual" className="hover:text-white">User Manual</Link></li>
                   </ul>
                 </div>
-                {/* Legal Links */}
+             {/* Legal Links */}
                 <div>
                   <h4 className="text-white font-bold mb-4 text-sm uppercase">Legal</h4>
-                  <ul className="space-y-2 text-xs">
-                    <li><Link href="/legal/terms" className="hover:text-white">Terms of Service</Link></li>
-                    <li><Link href="/legal/privacy" className="hover:text-white">Privacy Policy</Link></li>
+                  <ul className="space-y-2 text-xs text-indigo-200">
+                    <li><Link href="/legal/terms" className="hover:text-white hover:underline">Terms of Service</Link></li>
+                    <li><Link href="/legal/privacy" className="hover:text-white hover:underline">Privacy Policy</Link></li>
+                    <li><Link href="/legal/disclaimer" className="hover:text-white hover:underline">Liability Disclaimer</Link></li>
+                    <li><Link href="/legal/compliance" className="hover:text-white hover:underline">Compliance Standards</Link></li>
                   </ul>
                 </div>
                 {/* Contact */}
