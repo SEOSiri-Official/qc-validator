@@ -732,6 +732,7 @@ useEffect(() => {
     setSigningLoading(checklist.id);
     setTimeout(async () => {
         let newStatus = checklist.agreementStatus;
+        let updateData: any = {};
         if (signer === 'A') {
             newStatus = 'party_a_signed';
             alert(`✅ Signed by Party A (${checklist.sellerEmail}). Encrypted Notification sent to Party B.`);
@@ -743,6 +744,7 @@ useEffect(() => {
 
         const checklistRef = doc(db, "checklists", checklist.id);
         await updateDoc(checklistRef, { agreementStatus: newStatus });
+        updateData.signedAt = serverTimestamp();
         setSigningLoading(null);
     }, 2000);
   };
