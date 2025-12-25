@@ -127,6 +127,17 @@ export default async function LandingPage() {
                 <Link href="/marketplace" className="px-8 py-4 bg-white text-gray-900 border border-gray-200 font-bold text-lg rounded-full hover:bg-gray-50 transition-all flex items-center justify-center gap-2">
                     <span>🏛️</span> Browse Town Hall
                 </Link>
+                <div className="mt-12">
+    <p className="text-sm text-gray-600">Have an existing spec sheet?</p>
+    <Link 
+      href="/analysis" 
+      className="text-indigo-600 font-bold hover:underline inline-flex items-center gap-2"
+    >
+      <span>✨</span>
+      <span>Try our Free AI Compliance Gap Analysis Tool</span>
+      <span>→</span>
+    </Link>
+</div>
             </div>
             
             {/* Trust Signals / Logos */}
