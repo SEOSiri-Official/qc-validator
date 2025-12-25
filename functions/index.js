@@ -483,3 +483,31 @@ exports.sendHelpfulSuggestions = functions.pubsub.schedule('every 24 hours').onR
     console.log(`Checked for helpful suggestions for ${usersSnap.size} users.`);
     return null;
 });
+
+// Add this to your functions/index.js
+
+// This function runs every 24 hours
+exports.triggerSitemapRevalidation = functions.pubsub.schedule('every 24 hours').onRun(async (context) => {
+    console.log('Pinging Vercel to revalidate sitemap...');
+    
+    try {
+        const response = await fetch('https://qcval.seosiri.com/api/revalidate-sitemap', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${functions.config().cron.secret}` // Use Firebase environment config
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`Failed to revalidate: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        console.log('Successfully triggered sitemap revalidation:', data);
+        return null;
+        
+    } catch (error) {
+        console.error('Error triggering sitemap revalidation:', error);
+        return null;
+    }
+});
