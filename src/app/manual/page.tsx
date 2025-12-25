@@ -26,7 +26,6 @@ export default function ManualPage() {
           </div>
 
           <div className="space-y-6">
-            <h3 className="text-xl font-bold text-indigo-900 border-b pb-2">3. Agreements & Translation</h3>
             <h3 className="text-xl font-bold text-gray-800 mb-4">3. Agreements & Analytics</h3>
 <ul className="list-disc pl-5 text-gray-600 space-y-2">
     <li><strong>Digital Signature:</strong> Once a project score reaches 100%, the digital contract unlocks. Both Seller and Buyer must sign to generate a legally binding PDF certificate.</li>
