@@ -69,6 +69,27 @@ const faqCategories = [
     ]
   },
   {
+    category: "📊 Analytics & Insights",
+    items: [
+      {
+        q: "What is the Performance Analytics page?",
+        a: "This is your private business intelligence dashboard. It automatically processes data from your QC Reports and Marketplace activity to give you actionable insights. You can access it via the 'Analytics' link in your main navigation."
+      },
+      {
+        q: "What is 'Deal Velocity'?",
+        a: "Deal Velocity is a key metric that measures the average number of days it takes for you to go from creating a project to getting a completed, signed contract. A lower number means you are closing deals faster."
+      },
+      {
+        q: "How is 'Top QC Failure Point' calculated?",
+        a: "The system analyzes all of your projects that have failed items. It identifies which category of failure (e.g., 'Dimensions', 'Finish', 'Packaging') occurs most frequently across all your reports. This helps you identify and fix the biggest bottlenecks in your production process."
+      },
+      {
+        q: "Is my analytics data public?",
+        a: "No. Your Performance Analytics page is 100% private and only visible to you when you are logged in. It is designed to give you a competitive advantage, not to be shared."
+      }
+    ]
+  },
+  {
     category: "📈 SEO, Branding & ROI",
     items: [
         { q: "How does QC Validator improve my SEO and online branding?", a: "Every public QC Report and Press Release you create is a high-authority, indexable webpage linked to your company. This generates powerful backlinks and enriches your brand's search results with terms like 'Verified', 'Compliant', and your specific industry standards, showcasing you as a trusted leader in your field." },

@@ -27,10 +27,17 @@ export default function ManualPage() {
 
           <div className="space-y-6">
             <h3 className="text-xl font-bold text-indigo-900 border-b pb-2">3. Agreements & Translation</h3>
-            <ul className="list-disc pl-5 text-gray-600 space-y-2">
-                <li><strong>Digital Signature:</strong> Once the score reaches 100%, the "Sign" buttons unlock. Both Seller and Buyer must sign to generate the contract.</li>
-                <li><strong>AI Translation (BYOK):</strong> Go to Settings, enter your OpenAI API Key, and toggle translation in the Chat window to communicate in Arabic/English automatically.</li>
-            </ul>
+            <h3 className="text-xl font-bold text-gray-800 mb-4">3. Agreements & Analytics</h3>
+<ul className="list-disc pl-5 text-gray-600 space-y-2">
+    <li><strong>Digital Signature:</strong> Once a project score reaches 100%, the digital contract unlocks. Both Seller and Buyer must sign to generate a legally binding PDF certificate.</li>
+    <li><strong>AI Gap Analysis (BYOK):</strong> Navigate to the "AI Analysis" page from the main site. Paste your product specifications and provide your own API key (from OpenAI, Google AI, etc.) to get an instant compliance audit against international standards like ISO 9001.</li>
+    <li><strong>Performance Analytics:</strong> Visit your "Analytics" page from the dashboard to get insights on your deal velocity, top QC failure points, and marketplace performance.</li>
+</ul>
+
+{/* --- ADDED FAQ LINK --- */}
+<p className="mt-6 text-sm text-gray-600">
+    Have more questions? <a href="/faq" className="text-indigo-600 font-bold hover:underline">Explore our FAQ page</a> for detailed answers on the compliance workflow.
+</p>
 
             <div className="bg-indigo-50 p-6 rounded-xl mt-8">
                 <h4 className="font-bold text-indigo-800 mb-2">Need Enterprise Support?</h4>
