@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/firebase-admin';
-import { getAuth } from 'firebase-admin/auth';
+import { db } from '@/lib/firebase-admin'; // Keep this import as is
+// --- 1. IMPORT getAuth and the DecodedIdToken type ---
+import { getAuth, DecodedIdToken } from 'firebase-admin/auth';
 
 export async function POST(request: Request) {
   // 1. Authenticate the request on the server to get the user's real ID
@@ -9,10 +10,12 @@ export async function POST(request: Request) {
     return new Response('Unauthorized: No token provided', { status: 401 });
   }
 
-  let decodedToken;
+  let decodedToken: DecodedIdToken; // --- 2. APPLY THE TYPE ---
   try {
+    // --- 3. CALL getAuth() WITHOUT ARGUMENTS ---
     decodedToken = await getAuth().verifyIdToken(idToken);
   } catch (error) {
+    console.error("Token verification failed:", error); // Added more logging
     return new Response('Unauthorized: Invalid token', { status: 401 });
   }
   
@@ -34,7 +37,7 @@ export async function POST(request: Request) {
     
     const userData = userSnap.data();
     if (!userData || !userData.verificationCode) {
-        return NextResponse.json({ error: 'No verification code found' }, { status: 400 });
+        return NextResponse.json({ error: 'No verification code found for this user' }, { status: 400 });
     }
     const { verificationCode } = userData;
 

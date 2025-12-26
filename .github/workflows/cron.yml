@@ -1,15 +1,22 @@
-name: "QC Validator Daily Tasks"
+name: "QC Validator Daily Maintenance"
 
 on:
   schedule:
-    - cron: "0 1 * * *" # Runs at 1 AM UTC
+    # Runs at 01:00 UTC every day.
+    - cron: "0 1 * * *"
   workflow_dispatch:
 
 jobs:
-  trigger-vercel-cron:
+  daily-tasks:
     runs-on: ubuntu-latest
     steps:
-      - name: Trigger Vercel API Endpoint
+      - name: Trigger Cron Job (Suggestions & Stale Listings)
+        run: |
+          curl --request POST \
+            --url 'https://qcval.seosiri.com/api/cron' \
+            --header 'Authorization: Bearer ${{ secrets.CRON_SECRET }}'
+
+      - name: Trigger Sitemap Revalidation
         run: |
           curl --request POST \
             --url 'https://qcval.seosiri.com/api/revalidate-sitemap' \
