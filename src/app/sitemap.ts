@@ -1,74 +1,71 @@
 import { MetadataRoute } from 'next';
-import { collection, getDocs, query } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+// Use the ADMIN SDK for build-time data fetching to bypass security rules
+import { db } from '@/lib/firebase-admin';
 
-// The base URL of your live site
 const URL = 'https://qcval.seosiri.com';
 
-export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  // 1. Define all static pages
-  const staticPages = [
-    '', // Homepage
-    '/marketplace',
-    '/press',
-    '/faq',
-    '/standards',
-    '/about',
-    '/legal/terms',
-    '/legal/privacy',
-    '/legal/disclaimer',
-    '/auth'
-  ];
+/**
+ * Fetches documents from a Firestore collection and maps them to sitemap entries.
+ * This is a helper function to keep our code DRY (Don't Repeat Yourself).
+ */
+async function fetchCollection(
+    collectionName: string, 
+    pathPrefix: string,
+    priority: number,
+    changeFrequency: 'weekly' | 'monthly' | 'yearly'
+): Promise<MetadataRoute.Sitemap> {
+    try {
+        const snapshot = await db.collection(collectionName).get();
+        return snapshot.docs.map(doc => {
+            const data = doc.data();
+            const lastModified = data.updatedAt?.toDate() || data.createdAt?.toDate() || new Date();
+            return {
+                url: `${URL}/${pathPrefix}/${doc.id}`,
+                lastModified: lastModified.toISOString(),
+                changeFrequency,
+                priority,
+            };
+        });
+    } catch (error) {
+        console.error(`Failed to fetch sitemap data for ${collectionName}:`, error);
+        return []; // Return empty array on error to prevent build failure
+    }
+}
 
-  const staticRoutes = staticPages.map((route) => ({
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  // --- 1. STATIC PAGES ---
+  // These are the core pages of your site.
+  const staticRoutes = [
+    '/', '/marketplace', '/press', '/faq', '/standards', 
+    '/about', '/legal/terms', '/legal/privacy', '/legal/disclaimer', 
+    '/auth', '/analytics', '/analysis'
+  ].map((route) => ({
     url: `${URL}${route}`,
     lastModified: new Date().toISOString(),
     changeFrequency: 'weekly' as const,
-    priority: route === '' ? 1.0 : (route.includes('/legal') ? 0.3 : 0.8),
+    priority: route === '/' ? 1.0 : 0.8,
   }));
 
-  // 2. Fetch all dynamic Press Release pages
-  const pressSnapshot = await getDocs(query(collection(db, 'press_releases')));
-  const pressRoutes = pressSnapshot.docs.map(doc => {
-    const data = doc.data();
-    return {
-      url: `${URL}/press/${doc.id}`,
-      lastModified: data.publishedAt?.toDate().toISOString() || new Date().toISOString(),
-      changeFrequency: 'monthly' as const,
-      priority: 0.7,
-    };
-  });
+  // --- 2. DYNAMIC PAGES (Fetched from Firestore) ---
+  // Fetch all collections in parallel for maximum speed.
+  const [
+    reportRoutes,
+    pressRoutes,
+    groupRoutes,
+    profileRoutes // <-- NEWLY ADDED
+  ] = await Promise.all([
+    fetchCollection('checklists', 'report', 0.7, 'yearly'),
+    fetchCollection('press_releases', 'press', 0.6, 'monthly'),
+    fetchCollection('market_groups', 'marketplace', 0.9, 'weekly'),
+    fetchCollection('users', 'profile', 0.5, 'yearly'), // <-- NEWLY ADDED
+  ]);
 
-  // 3. Fetch all dynamic Public Report pages
-  const reportSnapshot = await getDocs(query(collection(db, 'checklists')));
-  const reportRoutes = reportSnapshot.docs.map(doc => {
-    const data = doc.data();
-    return {
-      url: `${URL}/report/${doc.id}`,
-      lastModified: data.createdAt?.toDate().toISOString() || new Date().toISOString(),
-      changeFrequency: 'yearly' as const,
-      priority: 0.6,
-    };
-  });
-
-  // 4. Fetch all dynamic Marketplace Group pages (as you correctly suggested)
-  const groupSnapshot = await getDocs(query(collection(db, 'market_groups')));
-  const groupRoutes = groupSnapshot.docs.map(doc => {
-    const data = doc.data();
-    return {
-        // Assuming you will create pages like /marketplace/[groupId]
-      url: `${URL}/marketplace/${doc.id}`, 
-      lastModified: data.createdAt?.toDate().toISOString() || new Date().toISOString(),
-      changeFrequency: 'weekly' as const,
-      priority: 0.9,
-    };
-  });
-
-  // Combine all routes into a single sitemap
+  // --- 3. COMBINE ALL ROUTES ---
   return [
     ...staticRoutes, 
-    ...pressRoutes, 
     ...reportRoutes, 
-    ...groupRoutes
+    ...pressRoutes, 
+    ...groupRoutes,
+    ...profileRoutes // <-- NEWLY ADDED
   ];
 }
