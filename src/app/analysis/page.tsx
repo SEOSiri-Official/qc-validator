@@ -6,6 +6,7 @@ import { db, auth } from '@/lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { getAiCompletion, ProviderName } from '@/lib/ai';
+import Tooltip from '@/components/Tooltip';
 
 // --- HELPER FUNCTION (This stays outside the component) ---
 const calculateAnalytics = (checklists: any[], listings: any[]) => {
@@ -135,10 +136,16 @@ export default function AnalyticsPage() {
                             <div className="bg-red-50 p-6 rounded-xl border border-red-200 shadow-sm">
                                 <p className="text-sm font-semibold text-red-700">Top QC Failure Point</p>
                                 <p className="text-3xl font-bold mt-2 text-red-900">{stats.topFailure}</p>
-                                <p className="text-xs text-red-500 mt-1">Focus on improving this area.</p>
-                                <button onClick={getAiInsight} disabled={isGettingInsight || stats.topFailure === 'N/A'} className="mt-4 bg-red-600 text-white text-xs font-bold px-4 py-2 rounded disabled:opacity-50">
-                                    {isGettingInsight ? 'Analyzing...' : '✨ Get AI Suggestion'}
-                                </button>
+                                <p className="text-xs text-red-500 mt-1">Focus on improving this area to increase your score.</p>
+                                  <Tooltip text="This feature unlocks when you have data on failed QC items. Create a project with a failed item to get started.">
+        <button 
+            onClick={getAiInsight}
+            disabled={isGettingInsight || stats.topFailure === 'N/A'}
+            className="mt-4 bg-red-600 text-white text-xs font-bold px-4 py-2 rounded hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+            {isGettingInsight ? 'Analyzing...' : '✨ Get AI Suggestion'}
+        </button>
+    </Tooltip>
                             </div>
                         </div>
 
