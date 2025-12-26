@@ -5,7 +5,7 @@ export default function ActionsLayout({
 }: {
   children: React.ReactNode;
 }) {
-  // This tells Next.js to wait for client-side hooks to load within this route.
+  // This tells Next.js to wait for client-side hooks like useSearchParams
   return (
     <Suspense>
       {children}
