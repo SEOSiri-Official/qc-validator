@@ -1039,6 +1039,10 @@ if (loading) return (
                     Explore industry groups and trade verified products.
                 </div>
             </div>
+             {/* --- ADD THIS LINK --- */}
+    <Link href="/analytics" className="text-sm font-bold text-gray-700 hover:text-indigo-600">
+        📊 Analytics
+    </Link>
 
             {/* Help Link */}
             <Link 

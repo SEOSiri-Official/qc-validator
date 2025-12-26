@@ -46,7 +46,7 @@ const faqCategories = [
         { q: "Is the summary email a paid feature?", a: "No, the Weekly Summary Email is a free feature for all registered users." },
         { q: "Can I unsubscribe from the Weekly Summary?", a: "Yes. Every summary email contains an 'Unsubscribe' link at the bottom. You can also manage your notification preferences in your account settings." }
     ]
-  }, // <-- COMMA WAS MISSING HERE
+  }, 
   {
     category: "✅ Managing Projects & Agreements",
     items: [
@@ -69,19 +69,27 @@ const faqCategories = [
     ]
   },
   {
-    category: "📊 Analytics & Insights",
+    category: "📊 Analytics & Business Intelligence",
     items: [
       {
         q: "What is the Performance Analytics page?",
         a: "This is your private business intelligence dashboard. It automatically processes data from your QC Reports and Marketplace activity to give you actionable insights. You can access it via the 'Analytics' link in your main navigation."
       },
       {
-        q: "What is 'Deal Velocity'?",
-        a: "Deal Velocity is a key metric that measures the average number of days it takes for you to go from creating a project to getting a completed, signed contract. A lower number means you are closing deals faster."
+        q: "What is 'Deal Velocity' and why is it important?",
+        a: "Deal Velocity measures the average time (in days) from project creation to a completed, signed contract. A lower number indicates a more efficient sales and compliance cycle, which is a key performance indicator for B2B trade."
       },
       {
         q: "How is 'Top QC Failure Point' calculated?",
         a: "The system analyzes all of your projects that have failed items. It identifies which category of failure (e.g., 'Dimensions', 'Finish', 'Packaging') occurs most frequently across all your reports. This helps you identify and fix the biggest bottlenecks in your production process."
+      },
+        {
+        q: "How does the 'Top QC Failure Point' help me?",
+        a: "This feature analyzes all your failed QC checks and identifies the most frequent category of failure (e.g., 'Dimensions', 'Packaging'). This allows you to focus your process improvement efforts on the area that will have the biggest impact on your overall quality score and efficiency."
+      },
+      {
+        q: "What is the 'Get AI Suggestion' feature?",
+        a: "This is a BYOK (Bring Your Own Key) feature. If you have an API key from a provider like OpenAI, our system will use it to send your 'Top Failure Point' to an advanced AI model. The AI will provide specific, actionable suggestions on how to improve your manufacturing or QC process to prevent that failure in the future."
       },
       {
         q: "Is my analytics data public?",
