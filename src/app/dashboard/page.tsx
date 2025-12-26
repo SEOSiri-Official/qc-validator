@@ -24,6 +24,7 @@ import { motion } from 'framer-motion';
 import OnboardingTour from '@/components/OnboardingTour';
 import WeeklySummaryModal from '@/components/WeeklySummaryModal';
 import ReferralSection from '@/components/ReferralSection';
+import DisputeModal from '@/components/DisputeModal';
 
 // --- TYPES & INTERFACES ---
 type QCType = 'physical' | 'service' | 'software';
@@ -244,6 +245,7 @@ export default function Dashboard() {
   const [acceptanceThreshold, setAcceptanceThreshold] = useState(100);
   const [governingLaw, setGoverningLaw] = useState('International Trade (Incoterms)');
   const [paymentTerms, setPaymentTerms] = useState('');
+  const [disputeModalChecklist, setDisputeModalChecklist] = useState<any | null>(null);
 
   // -- Auth State --
   const [user, setUser] = useState<any>(null);
@@ -503,7 +505,12 @@ fetchMyListings(currentUser.uid);
 }, [router]);
 
 // Separate useEffect for chat scrolling
-
+{disputeModalChecklist && (
+    <DisputeModal 
+        checklist={disputeModalChecklist}
+        onClose={() => setDisputeModalChecklist(null)}
+    />
+)}
 useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
 }, [activeChatChecklist?.messages]);
@@ -1772,6 +1779,14 @@ if (loading) return (
                             <button onClick={() => generatePDF(list)} className="flex items-center gap-1 text-xs font-bold text-gray-700 hover:text-black">🖨️ PDF</button>
                         )}
                         <button onClick={() => { const url = `https://qcval.seosiri.com/report/${list.id}`; navigator.clipboard.writeText(url); alert("Link Copied!"); }} className="flex items-center gap-1 text-xs font-bold text-gray-700 hover:text-indigo-600">🔗 Share</button>
+                   {user.uid === list.buyerUid && list.agreementStatus === 'completed' && (
+    <button 
+        onClick={() => setDisputeModalChecklist(list)} 
+        className="flex items-center gap-1 text-xs font-bold text-white bg-orange-600 hover:bg-orange-700 px-3 py-2 rounded-lg"
+    >
+        ⚠️ Raise Dispute
+    </button>
+)}
                    </div>
 
                   {/* QC PRESS CTA */}

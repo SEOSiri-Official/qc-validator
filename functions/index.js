@@ -511,3 +511,18 @@ exports.triggerSitemapRevalidation = functions.pubsub.schedule('every 24 hours')
         return null;
     }
 });
+
+// --- TRIGGER: New Dispute Filed ---
+exports.onDisputeCreated = functions.firestore
+  .document('disputes/{disputeId}')
+  .onCreate(async (snap, context) => {
+    const dispute = snap.data();
+    
+    // Notify the SELLER that a dispute has been opened against them
+    return createNotification(
+      dispute.sellerId,
+      `⚠️ Dispute Filed: ${dispute.checklistId.slice(0,8)}`,
+      `A buyer has filed a dispute. Action is required.`,
+      `/disputes/${context.params.disputeId}` // Link to the new dispute page
+    );
+  });

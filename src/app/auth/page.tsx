@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { auth, db } from '@/lib/firebase';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, sendEmailVerification, sendPasswordResetEmail } from 'firebase/auth';
 import { doc, setDoc, serverTimestamp, getDoc } from 'firebase/firestore';
 
 export default function AuthPage() {
@@ -15,22 +15,43 @@ export default function AuthPage() {
   const searchParams = useSearchParams();
   const redirectUrl = searchParams.get('redirect') || '/dashboard';
   const referralCode = searchParams.get('ref'); // <-- NEW: CAPTURE THE REF CODE
-
+  const handlePasswordReset = async () => {
+    if (!email) {
+      alert("Please enter your email address in the email field to receive a reset link.");
+      return;
+    }
+    setLoading(true);
+    try {
+      await sendPasswordResetEmail(auth, email);
+      alert("Password reset link sent! Check your inbox.");
+    } catch (error: any) {
+      alert(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
       if (isLogin) {
         await signInWithEmailAndPassword(auth, email, password);
-      } else {
+       } else {
         const userCred = await createUserWithEmailAndPassword(auth, email, password);
-        // Create user profile WITH referral info if it exists
+        // Create user profile
         await setDoc(doc(db, 'users', userCred.user.uid), {
           email: userCred.user.email,
           createdAt: serverTimestamp(),
           isDomainVerified: false,
-          referredByCode: referralCode || null, // <-- NEW: SAVE THE CODE
+          referredByCode: referralCode || null,
         });
+        
+        // --- ADD THIS ---
+        // Send verification email and keep them on the auth page
+        await sendEmailVerification(userCred.user);
+        alert("Account created! A verification link has been sent to your email. Please verify before logging in.");
+        setIsLogin(true); // Switch to login view after signup
+        return; // Stop the redirect from happening
       }
       router.push(redirectUrl);
     } catch (error: any) {
@@ -89,6 +110,20 @@ export default function AuthPage() {
             <label className="block text-sm font-medium text-gray-700">Password</label>
             <input type="password" required value={password} onChange={e => setPassword(e.target.value)} className="mt-1 block w-full border border-gray-300 rounded-md p-2" />
           </div>
+          {isLogin && (
+            <div className="text-right text-sm">
+              <button type="button" onClick={handlePasswordReset} className="font-semibold text-indigo-600 hover:text-indigo-500">
+                Forgot password?
+              </button>
+            </div>
+          )}
+<div>
+    <input type="checkbox" required id="terms" />
+    <label htmlFor="terms" className="text-xs ml-2">
+        I agree to the <a href="/legal/terms" target="_blank" className="underline">Terms of Service</a> and <a href="/legal/disclaimer" target="_blank" className="underline">Disclaimer</a>.
+    </label>
+</div>
+
           <button type="submit" disabled={loading} className="w-full bg-indigo-600 text-white py-2 rounded-md font-bold hover:bg-indigo-700 transition disabled:opacity-50">
             {loading ? 'Processing...' : (isLogin ? 'Sign In' : 'Create Account')}
           </button>
