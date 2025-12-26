@@ -115,10 +115,46 @@
   border-width: 0;
 }
 
-/* --- ONBOARDING TOUR HIGHLIGHT --- */
-.tour-highlight {
+/* === UPGRADED ONBOARDING TOUR STYLES === */
+
+/* The main container for the tour step */
+.tour-step-container {
     position: relative;
-    z-index: 999;
-    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
-    border-radius: 4px;
+    z-index: 1000; /* Must be very high */
+}
+
+/* The soft, circular spotlight effect */
+.tour-highlight {
+    border-radius: 9999px; /* Makes it a circle */
+    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.7);
+    padding: 8px; /* Adds some breathing room around the element */
+    transition: all 0.3s ease-in-out;
+}
+
+/* The popover box for instructions */
+.tour-popover {
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    margin-top: 16px; /* Space between element and popover */
+    width: 280px;
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    padding: 16px;
+    z-index: 1001; /* Must be above the spotlight */
+    animation: fadeIn 0.3s ease-out;
+}
+
+/* The small triangle pointing up to the highlighted element */
+.tour-popover::before {
+    content: '';
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border-width: 8px;
+    border-style: solid;
+    border-color: transparent transparent white transparent;
 }

@@ -1053,15 +1053,19 @@ if (loading) return (
                 Help
             </Link>
 
-            {/* Search Button */}
-            <button 
-                onClick={() => setOpenCommandPalette(true)}
-                className="hidden xl:flex items-center gap-2 w-48 text-left bg-gray-100 border-none rounded-full py-2 px-4 text-sm text-gray-500 hover:bg-gray-200 transition-colors"
-            >
-                <span className="text-gray-400">🔍</span>
-                <span>Search...</span>
-                <span className="ml-auto text-xs border rounded px-1.5 py-0.5 bg-white">Ctrl+K</span>
-            </button>
+           {/* --- RESPONSIVE SEARCH BUTTON --- */}
+          <button 
+            onClick={() => setOpenCommandPalette(true)}
+            className="flex items-center gap-2 text-left bg-gray-100 border-none rounded-full py-2 px-4 text-sm text-gray-500 hover:bg-gray-200 transition-colors"
+            title="Search Projects & Actions (Ctrl+K)"
+          >
+            {/* Magnifying Glass Icon */}
+            <span className="text-gray-400">🔍</span>
+
+            {/* Text and Keyboard Shortcut - Hidden on smaller screens */}
+            <span className="hidden sm:inline">Search...</span>
+            <span className="hidden lg:inline ml-auto text-xs border rounded px-1.5 py-0.5 bg-white">Ctrl+K</span>
+          </button>
 
              {/* --- HIDDEN AI SETTINGS (For Future Use) --- 
         <button onClick={() => setShowSettings(!showSettings)} className="p-2 text-gray-400 hover:text-indigo-600 transition-colors">
