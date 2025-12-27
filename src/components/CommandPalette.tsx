@@ -32,21 +32,45 @@ export default function CommandPalette({ open, setOpen, savedChecklists, router 
       open={open} 
       onOpenChange={setOpen} 
       label="Global Command Menu"
-      shouldFilter={false} // <--- FIX 1: Prevents stuck/filtering issues
-      // Added z-50 and positioning to ensure it appears above the overlay
-      className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 max-w-[640px] w-[90%] bg-white rounded-lg shadow-2xl overflow-hidden z-50"
+      shouldFilter={false} // Prevents stuck filtering
+      // --- UPDATE: Inline Styles to FORCE correct display ---
+      style={{
+        position: 'fixed',
+        top: '50%',
+        left: '50%',
+        transform: 'translate(-50%, -50%)',
+        width: '90%',
+        maxWidth: '640px',
+        backgroundColor: 'white',
+        borderRadius: '12px',
+        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+        zIndex: 99999,
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
+        maxHeight: '80vh'
+      }}
     >
-      {/* 
-         ACCESSIBILITY FIX: 
-         This title satisfies the DialogTitle requirement. 
-         'sr-only' hides it visually but keeps it for screen readers.
-      */}
       <div className="sr-only">Global Command Menu</div>
 
-      <Command.Input placeholder="Search projects or run commands..." />
+      <Command.Input 
+        placeholder="Search projects or run commands..." 
+        // --- UPDATE: Inline Styles for Input ---
+        style={{
+            width: '100%',
+            fontSize: '18px',
+            padding: '20px',
+            border: 'none',
+            borderBottom: '1px solid #eee',
+            outline: 'none'
+        }}
+      />
       
-      <Command.List>
-        <Command.Empty>No results found.</Command.Empty>
+      {/* --- UPDATE: Inline Styles for List --- */}
+      <Command.List style={{ overflowY: 'auto', maxHeight: '400px', padding: '8px' }}>
+        <Command.Empty style={{ padding: '20px', textAlign: 'center', color: '#888' }}>
+            No results found.
+        </Command.Empty>
 
         {/* Group 1: Actions */}
         <Command.Group heading="Actions">
@@ -54,7 +78,6 @@ export default function CommandPalette({ open, setOpen, savedChecklists, router 
             ✍️ Create New Press Release
           </Command.Item>
           <Command.Item onSelect={() => runCommand(() => {
-              // Smooth scroll to the project setup section
               const element = document.getElementById('project-setup');
               if (element) element.scrollIntoView({ behavior: 'smooth' });
           })}>
@@ -62,7 +85,7 @@ export default function CommandPalette({ open, setOpen, savedChecklists, router 
           </Command.Item>
         </Command.Group>
 
-        {/* Group 2: Projects (With Safety Check) */}
+        {/* Group 2: Projects */}
         {savedChecklists && savedChecklists.length > 0 && (
             <Command.Group heading="Compliance Reports">
             {savedChecklists.map((list) => (

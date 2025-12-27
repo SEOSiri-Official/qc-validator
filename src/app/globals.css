@@ -34,11 +34,11 @@
 
 /* 1. The Overlay: Fixed, full screen, high z-index */
 [cmdk-dialog-overlay] {
-  position: fixed;
-  inset: 0;
-  background-color: rgba(0, 0, 0, 0.6);
-  z-index: 9998; /* Very high */
-  backdrop-filter: blur(2px);
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7) !important;
+    z-index: 99998 !important;
+    backdrop-filter: blur(4px);
 }
 
 /* 2. The Content Box: Fixed, centered, HIGHER z-index than overlay */
