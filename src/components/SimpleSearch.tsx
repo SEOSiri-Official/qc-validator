@@ -9,9 +9,10 @@ interface SimpleSearchProps {
   isOpen: boolean;
   onClose: () => void;
   savedChecklists: any[];
+  user?: any;
 }
 
-export default function SimpleSearch({ isOpen, onClose, savedChecklists }: SimpleSearchProps) {
+export default function SimpleSearch({ isOpen, onClose, savedChecklists, user }: SimpleSearchProps) { 
   const [queryText, setQueryText] = useState('');
   const [blogPosts, setBlogPosts] = useState<any[]>([]);
   const router = useRouter();
@@ -120,7 +121,7 @@ export default function SimpleSearch({ isOpen, onClose, savedChecklists }: Simpl
               </div>
             </div>
 
-            {/* 2. MY PROJECTS (Filtered) */}
+         {/* 2. MY PROJECTS (Filtered) */}
             {filteredProjects.length > 0 && (
                <div className="mb-4">
                  <p className="text-[10px] font-bold text-gray-400 uppercase px-3 py-2 sticky top-0 bg-gray-50/95 backdrop-blur">My Projects</p>
@@ -128,7 +129,16 @@ export default function SimpleSearch({ isOpen, onClose, savedChecklists }: Simpl
                     {filteredProjects.slice(0, 5).map((list) => (
                     <button 
                         key={list.id} 
-                        onClick={() => handleNavigate(`/report/${list.id}`)}
+                        onClick={() => {
+                             // --- SMART NAVIGATION LOGIC ---
+                             // Check if the current user is the Owner (uid) or the invited Seller (email)
+                             // Note: 'user' prop must be passed to SimpleSearch for this to work
+                             if (user && (list.uid === user.uid || list.sellerEmail === user.email)) {
+                                 handleNavigate('/dashboard'); // Go to editor
+                             } else {
+                                 handleNavigate(`/report/${list.id}`); // Go to public view
+                             }
+                        }}
                         className="w-full text-left px-3 py-2.5 bg-white hover:bg-blue-50 rounded-lg border border-transparent hover:border-blue-100 flex justify-between items-center transition-colors group shadow-sm"
                     >
                         <div className="flex items-center gap-3">
@@ -146,6 +156,7 @@ export default function SimpleSearch({ isOpen, onClose, savedChecklists }: Simpl
                  </div>
                </div>
             )}
+
 
            {/* 3. NAVIGATION & MARKETPLACE */}
              <div className="mb-4">

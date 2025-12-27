@@ -92,7 +92,7 @@ export default async function PublicReportPage({ params }: { params: Promise<{ i
                 <div className="flex flex-wrap gap-2 text-sm opacity-90">
                     <span className="bg-white/20 px-2 py-1 rounded flex items-center gap-1">🏢 {report.industry}</span>
                     <span className="bg-white/20 px-2 py-1 rounded flex items-center gap-1">📜 {report.standard}</span>
-                    <span className="bg-white/20 px-2 py-1 rounded flex items-center gap-1">📅 {report.createdAt ? new Date(report.createdAt).toLocaleDateString() : 'N/A'}</span>
+                    <span>📅 {new Date(report.createdAt?.seconds * 1000).toUTCString().slice(0, 16)} (UTC)</span>
                 </div>
             </div>
             

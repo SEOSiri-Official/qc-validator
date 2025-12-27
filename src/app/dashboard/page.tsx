@@ -561,33 +561,55 @@ useEffect(() => {
     setItems(newItems);
   };
 
-  // --- REAL-TIME DATA FETCHER ---
+  // --- REAL-TIME DATA FETCHER (ROBUST VERSION) ---
   const fetchChecklists = (userId: string, userEmail: string | null) => {
-    if (!userEmail) return;
+    if (!userId) return;
 
+    // 1. Query for projects where I am the SELLER (Creator)
     const sellerQuery = query(collection(db, "checklists"), where("uid", "==", userId));
-    const buyerQuery = query(collection(db, "checklists"), where("buyerEmail", "==", userEmail));
+    
+    // 2. Query for projects where I am the BUYER
+    //    We check both 'buyerEmail' (for initial invites) and 'buyerUid' (for claimed projects)
+    const buyerQueryEmail = userEmail ? query(collection(db, "checklists"), where("buyerEmail", "==", userEmail)) : null;
+    const buyerQueryUid = query(collection(db, "checklists"), where("buyerUid", "==", userId));
 
+    // Shared function to process ANY snapshot (Seller or Buyer)
     const processSnapshot = (snapshot: any) => {
-        const lists: Record<string, Checklist> = {};
-        snapshot.forEach((doc: any) => {
-            lists[doc.id] = { id: doc.id, ...doc.data() } as Checklist;
-        });
-
+        const newItems = snapshot.docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as Checklist));
+        // --- ADD THIS LOG ---
+        console.log("🔥 FIRESTORE FETCH:", newItems.length, "items found for user", userId);
+        if (newItems.length > 0) console.log("First Item UID:", newItems[0].uid);
+        // --------------------
+        
+        // Merge into state without duplicates
         setSavedChecklists(prev => {
-            const combined = { ...lists }; 
-            return Object.values(lists).sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+            const combinedMap = new Map();
+            // Add existing items to map
+            prev.forEach(item => combinedMap.set(item.id, item));
+            // Add/Overwrite with new items
+            newItems.forEach((item: any) => combinedMap.set(item.id, item));
+            
+            // Convert back to array and sort
+            return Array.from(combinedMap.values()).sort((a:any, b:any) => 
+                (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)
+            );
         });
 
-        // Notification Logic
+        // --- NOTIFICATION LOGIC (Preserved from Existing) ---
         snapshot.docChanges().forEach((change: any) => {
             const data = { id: change.doc.id, ...change.doc.data() } as Checklist;
+            
+            // Auto-update active chat if open
             if (activeChatChecklist && activeChatChecklist.id === data.id) {
                 setActiveChatChecklist(data);
             }
+
+            // Meeting Notification Trigger
             if (change.type === "modified" && data.meetingStartedAt) {
                 const meetingTimestamp = data.meetingStartedAt?.toDate();
+                // Check if meeting started in last 60 seconds
                 if (meetingTimestamp && (new Date().getTime() - meetingTimestamp.getTime()) < 60000) {
+                    // Only notify if *I* didn't start it
                     if (data.lastMeetingInitiator !== userId) {
                         setMeetingNotification({
                             title: data.title,
@@ -600,8 +622,21 @@ useEffect(() => {
         });
     };
 
+    // Activate Listeners
     const unsubscribeSeller = onSnapshot(sellerQuery, processSnapshot);
-    const unsubscribeBuyer = onSnapshot(buyerQuery, processSnapshot);
+    const unsubscribeBuyerUid = onSnapshot(buyerQueryUid, processSnapshot);
+    
+    let unsubscribeBuyerEmail = () => {};
+    if (buyerQueryEmail) {
+        unsubscribeBuyerEmail = onSnapshot(buyerQueryEmail, processSnapshot);
+    }
+
+    // Cleanup all listeners on unmount
+    return () => {
+        unsubscribeSeller();
+        unsubscribeBuyerUid();
+        unsubscribeBuyerEmail();
+    };
   };
 
   // --- INTELLIGENT PARAMETER SELECTION LOGIC ---
@@ -976,6 +1011,7 @@ if (loading) return (
     
 
   // --- RENDER ---
+  console.log("👀 RENDER: Filtered Checklists count:", filteredChecklists.length);
   return (
     <> 
     {/* Use the new SimpleSearch instead of CommandPalette */}
@@ -983,6 +1019,7 @@ if (loading) return (
         isOpen={openCommandPalette} 
         onClose={() => setOpenCommandPalette(false)} // Pass the close handler
         savedChecklists={savedChecklists}
+        user={user}
     />
 
     <div className="min-h-screen bg-gray-50 font-sans text-gray-900 relative">
