@@ -976,14 +976,18 @@ if (loading) return (
 
   // --- RENDER ---
   return (
+    <> {/* 1. Open Fragment */}
+      
+      {/* 2. Command Palette (Top Level) */}
+      <CommandPalette 
+          open={openCommandPalette} 
+          setOpen={setOpenCommandPalette}
+          savedChecklists={savedChecklists}
+          router={router}
+      />
+
     <div className="min-h-screen bg-gray-50 font-sans text-gray-900 relative">
-      {/* Put CommandPalette FIRST */}
-        <CommandPalette 
-            open={openCommandPalette} 
-            setOpen={setOpenCommandPalette}
-            savedChecklists={savedChecklists}
-            router={router}
-        />
+      
         
         {/* Then OnboardingTour */}
         <OnboardingTour />
@@ -1932,5 +1936,6 @@ if (loading) return (
         />
       )}
     </div>
+    </>
   );
 }
