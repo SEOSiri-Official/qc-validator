@@ -32,6 +32,7 @@ export default function CommandPalette({ open, setOpen, savedChecklists, router 
       open={open} 
       onOpenChange={setOpen} 
       label="Global Command Menu"
+      shouldFilter={false} // <--- FIX 1: Prevents stuck/filtering issues
       // Added z-50 and positioning to ensure it appears above the overlay
       className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 max-w-[640px] w-[90%] bg-white rounded-lg shadow-2xl overflow-hidden z-50"
     >
@@ -39,7 +40,6 @@ export default function CommandPalette({ open, setOpen, savedChecklists, router 
          ACCESSIBILITY FIX: 
          This title satisfies the DialogTitle requirement. 
          'sr-only' hides it visually but keeps it for screen readers.
-         Do NOT use display:none. 
       */}
       <div className="sr-only">Global Command Menu</div>
 
@@ -62,21 +62,23 @@ export default function CommandPalette({ open, setOpen, savedChecklists, router 
           </Command.Item>
         </Command.Group>
 
-        {/* Group 2: Projects */}
-        <Command.Group heading="Compliance Reports">
-          {savedChecklists.map((list) => (
-            <Command.Item 
-              key={list.id} 
-              value={`${list.title} ${list.standard} ${list.industry}`}
-              onSelect={() => runCommand(() => router.push(`/report/${list.id}`))}
-            >
-              <div className="flex justify-between w-full items-center">
-                <span>{list.title}</span>
-                <span className="text-xs bg-gray-100 px-2 py-1 rounded">{list.standard}</span>
-              </div>
-            </Command.Item>
-          ))}
-        </Command.Group>
+        {/* Group 2: Projects (With Safety Check) */}
+        {savedChecklists && savedChecklists.length > 0 && (
+            <Command.Group heading="Compliance Reports">
+            {savedChecklists.map((list) => (
+                <Command.Item 
+                key={list.id} 
+                value={`${list.title} ${list.standard} ${list.industry}`}
+                onSelect={() => runCommand(() => router.push(`/report/${list.id}`))}
+                >
+                <div className="flex justify-between w-full items-center">
+                    <span>{list.title}</span>
+                    <span className="text-xs bg-gray-100 px-2 py-1 rounded">{list.standard}</span>
+                </div>
+                </Command.Item>
+            ))}
+            </Command.Group>
+        )}
         
         {/* Group 3: Navigation */}
         <Command.Group heading="Navigation">
