@@ -25,6 +25,7 @@ import OnboardingTour from '@/components/OnboardingTour';
 import WeeklySummaryModal from '@/components/WeeklySummaryModal';
 import ReferralSection from '@/components/ReferralSection';
 import DisputeModal from '@/components/DisputeModal';
+import SimpleSearch from '@/components/SimpleSearch';
 
 // --- TYPES & INTERFACES ---
 type QCType = 'physical' | 'service' | 'software';
@@ -976,15 +977,13 @@ if (loading) return (
 
   // --- RENDER ---
   return (
-    <> {/* 1. Open Fragment */}
-      
-      {/* 2. Command Palette (Top Level) */}
-      <CommandPalette 
-          open={openCommandPalette} 
-          setOpen={setOpenCommandPalette}
-          savedChecklists={savedChecklists}
-          router={router}
-      />
+    <> 
+    {/* Use the new SimpleSearch instead of CommandPalette */}
+    <SimpleSearch 
+        isOpen={openCommandPalette} 
+        onClose={() => setOpenCommandPalette(false)} // Pass the close handler
+        savedChecklists={savedChecklists}
+    />
 
     <div className="min-h-screen bg-gray-50 font-sans text-gray-900 relative">
       

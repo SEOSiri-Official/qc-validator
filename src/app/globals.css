@@ -30,79 +30,7 @@
     scrollbar-width: none;
 }
 
-/* === ROBUST SEARCH MODAL STYLES === */
 
-/* 1. The Overlay: Fixed, full screen, high z-index */
-[cmdk-dialog-overlay] {
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.7) !important;
-    z-index: 99998 !important;
-    backdrop-filter: blur(4px);
-}
-
-/* 2. The Content Box: Fixed, centered, HIGHER z-index than overlay */
-[cmdk-dialog] {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%); /* Perfect centering */
-  width: 90%;
-  max-width: 600px;
-  max-height: 80vh; /* Don't be taller than screen */
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-  z-index: 9999; /* Higher than overlay */
-  display: flex;
-  flex-direction: column;
-  overflow: hidden; /* Keep content inside rounded corners */
-}
-
-/* 3. The Input: Clean, simple */
-[cmdk-input] {
-  font-family: inherit;
-  border: none;
-  width: 100%;
-  font-size: 18px;
-  padding: 20px;
-  outline: none;
-  border-bottom: 1px solid #e5e7eb;
-}
-
-/* 4. The List: Scrollable area */
-[cmdk-list] {
-  height: auto;
-  max-height: 400px;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  padding: 8px;
-  scroll-behavior: smooth;
-}
-
-/* 5. Items: Clickable style */
-[cmdk-item] {
-  content-visibility: auto;
-  cursor: pointer;
-  border-radius: 8px;
-  font-size: 14px;
-  padding: 12px 16px;
-  user-select: none;
-  color: #374151;
-}
-
-[cmdk-item][data-selected="true"] {
-  background: #f3f4f6;
-  color: #4f46e5;
-}
-
-/* 6. Empty State */
-[cmdk-empty] {
-  font-size: 14px;
-  color: #9ca3af;
-  text-align: center;
-  padding: 32px;
-}
 /* Animations */
 @keyframes overlay-show {
   from { opacity: 0; }
