@@ -30,41 +30,94 @@
     scrollbar-width: none;
 }
 
-/* --- FIX FOR STUCK SCROLLING --- */
-[cmdk-list] {
-  /* Restrict height so it scrolls instead of growing off-screen */
-  max-height: 60vh; 
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  scroll-behavior: smooth;
-  padding-bottom: 8px;
+/* === UPGRADED SPOTLIGHT SEARCH STYLES === */
+
+/* 1. The Dark Overlay (Backdrop) */
+[cmdk-dialog-overlay] {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.7); /* Darker for better focus */
+  backdrop-filter: blur(4px); /* Blur the background content */
+  z-index: 9999; /* Ensure it's on top of EVERYTHING */
+  animation: overlay-show 200ms ease-out;
 }
 
-/* Style the scrollbar so it's visible but subtle */
-[cmdk-list]::-webkit-scrollbar {
-  width: 8px;
-}
-
-[cmdk-list]::-webkit-scrollbar-thumb {
-  background-color: #e5e7eb;
-  border-radius: 9999px;
-}
-
+/* 2. The Search Box (Modal) */
 [cmdk-dialog] {
-  /* Ensure the dialog itself doesn't get too tall */
-  max-height: 80vh;
-  display: flex;
-  flex-direction: column;
+  position: fixed;
+  top: 20%; /* Position slightly higher than center */
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 640px;
+  background: white;
+  border-radius: 12px; /* Softer corners */
+  box-shadow: 
+    0 20px 25px -5px rgba(0, 0, 0, 0.1), 
+    0 10px 10px -5px rgba(0, 0, 0, 0.04),
+    0 0 0 1px rgba(0,0,0,0.05); /* Subtle border */
+  overflow: hidden;
+  z-index: 10000; /* Higher than overlay */
+  animation: content-show 200ms ease-out;
 }
 
+/* 3. The Input Field */
+[cmdk-input] {
+  width: 100%;
+  font-size: 18px; /* Larger text for readability */
+  padding: 20px;
+  border: none;
+  border-bottom: 1px solid #f3f4f6;
+  outline: none;
+  color: #1f2937;
+}
+
+/* 4. The Results List (Scrollable) */
+[cmdk-list] {
+  max-height: 400px; /* STRICT HEIGHT LIMIT */
+  overflow-y: auto; /* Scroll if content is too long */
+  overscroll-behavior: contain;
+  padding: 8px;
+}
+
+/* 5. Group Headings */
+[cmdk-group-heading] {
+  padding: 8px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #9ca3af;
+}
+
+/* 6. Individual Items */
+[cmdk-item] {
+  padding: 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+  color: #374151;
+  transition: all 0.1s ease;
+}
+
+/* Highlight style when an item is selected/hovered */
+[cmdk-item][data-selected="true"] {
+  background-color: #f3f4f6;
+  color: #4f46e5; /* Indigo color on hover */
+}
+
+/* Animations */
 @keyframes overlay-show {
   from { opacity: 0; }
   to { opacity: 1; }
 }
 
 @keyframes content-show {
-  from { opacity: 0; transform: translate(-50%, -48%) scale(0.96); }
-  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  from { opacity: 0; transform: translate(-50%, -2%) scale(0.98); }
+  to { opacity: 1; transform: translate(-50%, 0) scale(1); }
 }
 
 /* Tailwind CSS screen-reader only utility */
