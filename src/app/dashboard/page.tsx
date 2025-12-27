@@ -977,13 +977,16 @@ if (loading) return (
   // --- RENDER ---
   return (
     <div className="min-h-screen bg-gray-50 font-sans text-gray-900 relative">
-      <OnboardingTour />
-      <CommandPalette 
-        open={openCommandPalette} 
-        setOpen={setOpenCommandPalette}
-        savedChecklists={savedChecklists}
-        router={router}
-      />
+      {/* Put CommandPalette FIRST */}
+        <CommandPalette 
+            open={openCommandPalette} 
+            setOpen={setOpenCommandPalette}
+            savedChecklists={savedChecklists}
+            router={router}
+        />
+        
+        {/* Then OnboardingTour */}
+        <OnboardingTour />
       
      {/* 1. NAVBAR WITH MODE SWITCHER */}
       <nav className={`shadow-sm border-b px-6 h-16 flex justify-between items-center sticky top-0 z-10 transition-colors duration-300 ${appMode === 'seller' ? 'bg-white border-gray-200' : 'bg-green-50 border-green-200'}`}>
