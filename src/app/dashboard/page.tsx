@@ -964,24 +964,32 @@ const handlePublish = (checklist: any) => {
   };
 
 // --- UPDATED FILTER LOGIC (Supports Search & Role Switching) ---
-const filteredChecklists = savedChecklists.filter(list => {
+// --- UPDATED FILTER LOGIC (Linked to Tabs) ---
+  const filteredChecklists = savedChecklists.filter(list => {
     // 1. Search Query Filter
     const query = searchQuery.toLowerCase();
     const matchesSearch = 
       list.title.toLowerCase().includes(query) ||
       (list.standard || '').toLowerCase().includes(query) ||
-      (list.industry || '').toLowerCase().includes(query);
+      (list.industry || '').toLowerCase().includes(query) ||
+      (list.agreementStatus || '').toLowerCase().includes(query) ||
+      (list.score + '%').includes(query);
 
-    // 2. Role Filter (Seller vs Buyer View)
-    let matchesRole = true; // Default to showing all
-    if (appMode === 'seller') {
-        matchesRole = list.uid === user.uid;
+    // 2. Role Filter based on viewMode (Tabs)
+    let matchesRole = false;
+    const isSeller = list.uid === user.uid;
+    const isBuyer = (list.buyerUid && list.buyerUid === user.uid) || (list.buyerEmail && list.buyerEmail === user.email);
+
+    if (viewMode === 'all') {
+        matchesRole = isSeller || isBuyer;
+    } else if (viewMode === 'selling') {
+        matchesRole = isSeller;
+    } else if (viewMode === 'buying') {
+        matchesRole = isBuyer;
     }
-    if (appMode === 'buyer') {
-<input type="checkbox" id="compliance" checked={!!complianceCheck} onChange={(e) => setComplianceCheck(e.target.checked)} className="mt-1" />    }
 
     return matchesSearch && matchesRole;
-});
+  });
 
 if (loading) return (
     <div className="min-h-screen bg-gray-50 p-8 animate-pulse">
