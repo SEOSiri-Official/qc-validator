@@ -241,7 +241,7 @@ const translateText = async (text: string, targetLang: 'en' | 'ar', apiKey: stri
     }
 };
 
-// --- MAIN COMPONENT ---
+// --- MAIN COMPONENT --- 
 export default function Dashboard() {
   const router = useRouter();
   const [acceptanceThreshold, setAcceptanceThreshold] = useState(100);
@@ -251,6 +251,8 @@ export default function Dashboard() {
   const handleComplianceChange = (e: ChangeEvent<HTMLInputElement>) => {
     setComplianceCheck(e.target.checked);
 };
+const [complianceCheck, setComplianceCheck] = useState<boolean>(false);
+
 
   // -- Auth State --
   const [user, setUser] = useState<any>(null);
@@ -273,7 +275,6 @@ export default function Dashboard() {
   const [items, setItems] = useState<ChecklistItem[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [barcodeInput, setBarcodeInput] = useState('');
-  const [complianceCheck, setComplianceCheck] = useState<boolean>(false);
 
   // -- Dashboard Data State --
   const [savedChecklists, setSavedChecklists] = useState<Checklist[]>([]);
@@ -963,7 +964,6 @@ const handlePublish = (checklist: any) => {
     }
   };
 
-// --- UPDATED FILTER LOGIC (Supports Search & Role Switching) ---
 // --- UPDATED FILTER LOGIC (Linked to Tabs) ---
   const filteredChecklists = savedChecklists.filter(list => {
     // 1. Search Query Filter
@@ -981,11 +981,9 @@ const handlePublish = (checklist: any) => {
     const isBuyer = (list.buyerUid && list.buyerUid === user.uid) || (list.buyerEmail && list.buyerEmail === user.email);
 
     if (viewMode === 'all') {
-        matchesRole = isSeller || isBuyer;
     } else if (viewMode === 'selling') {
         matchesRole = isSeller;
     } else if (viewMode === 'buying') {
-        matchesRole = isBuyer;
     }
 
     return matchesSearch && matchesRole;
