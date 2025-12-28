@@ -4,7 +4,6 @@
 import Link from 'next/link';
 import Logo from '@/components/Logo';
 import Tooltip from '@/components/Tooltip';
-import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import {
@@ -26,6 +25,8 @@ import WeeklySummaryModal from '@/components/WeeklySummaryModal';
 import ReferralSection from '@/components/ReferralSection';
 import DisputeModal from '@/components/DisputeModal';
 import SimpleSearch from '@/components/SimpleSearch';
+import { useEffect, useState, useRef, ChangeEvent } from 'react';
+
 
 // --- TYPES & INTERFACES ---
 type QCType = 'physical' | 'service' | 'software';
@@ -247,6 +248,9 @@ export default function Dashboard() {
   const [governingLaw, setGoverningLaw] = useState('International Trade (Incoterms)');
   const [paymentTerms, setPaymentTerms] = useState('');
   const [disputeModalChecklist, setDisputeModalChecklist] = useState<any | null>(null);
+  const handleComplianceChange = (e: ChangeEvent<HTMLInputElement>) => {
+    setComplianceCheck(e.target.checked);
+};
 
   // -- Auth State --
   const [user, setUser] = useState<any>(null);
@@ -269,7 +273,7 @@ export default function Dashboard() {
   const [items, setItems] = useState<ChecklistItem[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [barcodeInput, setBarcodeInput] = useState('');
-  const [complianceCheck, setComplianceCheck] = useState(false);
+  const [complianceCheck, setComplianceCheck] = useState<boolean>(false);
 
   // -- Dashboard Data State --
   const [savedChecklists, setSavedChecklists] = useState<Checklist[]>([]);
@@ -959,29 +963,25 @@ const handlePublish = (checklist: any) => {
     }
   };
 
- // --- UPDATED FILTER LOGIC (Supports Cross Mitigation) ---
-  const filteredChecklists = savedChecklists.filter(list => {
+// --- UPDATED FILTER LOGIC (Supports Search & Role Switching) ---
+const filteredChecklists = savedChecklists.filter(list => {
     // 1. Search Query Filter
     const query = searchQuery.toLowerCase();
     const matchesSearch = 
       list.title.toLowerCase().includes(query) ||
-      list.standard.toLowerCase().includes(query) ||
-      list.industry.toLowerCase().includes(query) ||
-      (list.agreementStatus || '').toLowerCase().includes(query) ||
-      (list.score + '%').includes(query);
+      (list.standard || '').toLowerCase().includes(query) ||
+      (list.industry || '').toLowerCase().includes(query);
 
-    // 2. Role Filter (Cross Mitigation Strategy)
-    const amISeller = user.uid === list.uid;
-const amIBuyer = Boolean(
-    (list.buyerUid && list.buyerUid === user.uid) || 
-    (list.buyerEmail && list.buyerEmail === user.email)
-);
-    let matchesRole = true;
-    if (viewMode === 'selling') matchesRole = amISeller;
-    if (viewMode === 'buying') matchesRole = amIBuyer;
+    // 2. Role Filter (Seller vs Buyer View)
+    let matchesRole = true; // Default to showing all
+    if (appMode === 'seller') {
+        matchesRole = list.uid === user.uid;
+    }
+    if (appMode === 'buyer') {
+<input type="checkbox" id="compliance" checked={!!complianceCheck} onChange={(e) => setComplianceCheck(e.target.checked)} className="mt-1" />    }
 
     return matchesSearch && matchesRole;
-  });
+});
 
 if (loading) return (
     <div className="min-h-screen bg-gray-50 p-8 animate-pulse">
@@ -1465,8 +1465,13 @@ if (loading) return (
             </div>
 
             <div className="mb-4 flex items-start gap-2 bg-red-50 p-3 rounded border border-red-100">
-                <input type="checkbox" id="compliance" checked={complianceCheck} onChange={(e) => setComplianceCheck(e.target.checked)} className="mt-1" />
-                <label htmlFor="compliance" className="text-[10px] text-red-800 leading-tight">I certify this project <b>does not</b> involve unlawful or illegal materials.</label>
+<input 
+    type="checkbox" 
+    id="compliance" 
+    checked={complianceCheck} // Keep this simple, the state is now strongly typed
+    onChange={handleComplianceChange} // Use the new handler function
+    className="mt-1 h-4 w-4 text-red-600 ..." 
+/>                <label htmlFor="compliance" className="text-[10px] text-red-800 leading-tight">I certify this project <b>does not</b> involve unlawful or illegal materials.</label>
             </div>
 
             {/* SEOSiri Tool Promotion */}
@@ -1659,8 +1664,6 @@ if (loading) return (
                       : new Date(listing.lastMaintainedAt);
                   isStale = lastMaintainedDate < cutoff;
               }
- if (appMode === 'seller') return list.uid === user.uid; // Only show what I created
-                if (appMode === 'buyer') return list.buyerUid === user.uid || list.buyerEmail === user.email; // Only show what I need to buy
               // --- 2. START RENDERING ---
               return (
             <div key={list.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-6">
