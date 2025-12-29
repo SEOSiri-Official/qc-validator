@@ -48,7 +48,13 @@ export default function InvitePage() {
   }, [inviteId, router]);
 
   const handleAccept = async () => {
-    if (!user || !checklist) return;
+    console.log("Attempting to accept. User:", user);
+    console.log("Checklist data:", checklist);
+
+    if (!user || !checklist || !checklist.uid) { // <-- ADD a check for checklist.uid
+        alert("Error: Missing critical data. Cannot accept.");
+        return;
+    }
 
     try {
         const checklistRef = doc(db, "checklists", checklist.id);
