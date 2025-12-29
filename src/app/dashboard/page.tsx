@@ -460,63 +460,81 @@ const fetchWeeklySummary = async (userId: string) => {
         fetchMyListings(user.uid); 
     } catch(e) { console.error(e); }
   };
+// --- INITIALIZATION (PRODUCTION READY & MERGED) ---
 useEffect(() => {
-
-    // Get non-user-specific settings from localStorage on initial load
-    
+    // This effect runs only ONCE to set up the auth listener
     const localKey = localStorage.getItem('openai_key');
     if (localKey) setApiKey(localKey);
     
     const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
+        // --- 1. SET THE USER STATE ---
+        // This will trigger the next useEffect to fetch data
         setUser(currentUser);
-         // --- WEEKLY SUMMARY TRIGGER LOGIC ---
-        const lastSummary = localStorage.getItem('lastSummaryDate');
-        const oneWeekAgo = new Date();
-        oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
         
-        if (!lastSummary || new Date(lastSummary) < oneWeekAgo) {
-            fetchWeeklySummary(currentUser.uid);
-        }
-fetchMyListings(currentUser.uid);
-        // --- NEW: READ isVerified STATUS FROM FIRESTORE ---
+        // --- 2. HANDLE NEW USER PROFILE CREATION ---
         const userRef = doc(db, "users", currentUser.uid);
         const userSnap = await getDoc(userRef);
-
-        if (userSnap.exists() && userSnap.data().isDomainVerified) {
-          setIsVerified(true);
-        } else {
-          // If the user profile doesn't exist, create it with verification set to false.
+        if (!userSnap.exists()) {
           await setDoc(userRef, { 
             email: currentUser.email, 
             isDomainVerified: false,
             createdAt: serverTimestamp()
           }, { merge: true });
-          setIsVerified(false);
         }
-        
-        // Now, fetch all user-specific data
-        fetchChecklists(currentUser.uid, currentUser.email);
-        fetchCommunityStandards();
 
       } else {
         // No user is logged in
+        setUser(null);
         router.push('/auth');
       }
       setLoading(false);
     });
 
-    // This function will be called when the component unmounts
     return () => unsubscribeAuth();
-}, [router]);
+}, [router]); // Depends only on router, so runs once
+
+// --- NEW DATA FETCHING EFFECT ---
+// This effect runs whenever the 'user' object changes (i.e., on login/logout)
+useEffect(() => {
+    if (user) {
+        // --- 1. FETCH USER-SPECIFIC DATA ---
+        // We assume fetchChecklists returns its own unsubscribe function for cleanup
+        const unsubscribeChecklists = fetchChecklists(user.uid, user.email);
+        fetchMyListings(user.uid);
+        fetchCommunityStandards();
+
+        // --- 2. CHECK VERIFICATION STATUS ---
+        const checkVerification = async () => {
+            const userRef = doc(db, "users", user.uid);
+            const userSnap = await getDoc(userRef);
+            if (userSnap.exists() && userSnap.data().isDomainVerified) {
+                setIsVerified(true);
+            } else {
+                setIsVerified(false);
+            }
+        };
+        checkVerification();
+
+        // --- 3. WEEKLY SUMMARY TRIGGER LOGIC ---
+        const lastSummary = localStorage.getItem('lastSummaryDate');
+        const oneWeekAgo = new Date();
+        oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+        
+        if (!lastSummary || new Date(lastSummary) < oneWeekAgo) {
+            fetchWeeklySummary(user.uid);
+        }
+        
+        // Return a cleanup function for the real-time listener
+        return () => {
+            if (unsubscribeChecklists) {
+                unsubscribeChecklists();
+            }
+        };
+    }
+}, [user]); // <-- THE CRITICAL CHANGE: This now depends on the user state
 
 // Separate useEffect for chat scrolling
-{disputeModalChecklist && (
-    <DisputeModal 
-        checklist={disputeModalChecklist}
-        onClose={() => setDisputeModalChecklist(null)}
-    />
-)}
 useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
 }, [activeChatChecklist?.messages]);
