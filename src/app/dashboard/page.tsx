@@ -1106,7 +1106,7 @@ if (loading) return (
                 </div>
             </div>
              {/* --- ADD THIS LINK --- */}
-    <Link href="/analytics" className="text-sm font-bold text-gray-700 hover:text-indigo-600">
+    <Link href="/analysis" className="text-sm font-bold text-gray-700 hover:text-indigo-600">
         📊 Analytics
     </Link>
 
