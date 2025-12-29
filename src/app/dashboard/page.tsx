@@ -460,84 +460,67 @@ const fetchWeeklySummary = async (userId: string) => {
         fetchMyListings(user.uid); 
     } catch(e) { console.error(e); }
   };
-// --- INITIALIZATION (PRODUCTION READY & MERGED) ---
 useEffect(() => {
-    // This effect runs only ONCE to set up the auth listener
+    // Get non-user-specific settings from localStorage on initial load
     const localKey = localStorage.getItem('openai_key');
     if (localKey) setApiKey(localKey);
-    
-    const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
-      if (currentUser) {
-        // --- 1. SET THE USER STATE ---
-        // This will trigger the next useEffect to fetch data
-        setUser(currentUser);
-        
-        // --- 2. HANDLE NEW USER PROFILE CREATION ---
-        const userRef = doc(db, "users", currentUser.uid);
-        const userSnap = await getDoc(userRef);
-        if (!userSnap.exists()) {
-          await setDoc(userRef, { 
-            email: currentUser.email, 
-            isDomainVerified: false,
-            createdAt: serverTimestamp()
-          }, { merge: true });
-        }
 
-      } else {
-        // No user is logged in
-        setUser(null);
-        router.push('/auth');
-      }
+    const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
+      setUser(currentUser); // Set user state immediately (can be user or null)
       setLoading(false);
     });
 
     return () => unsubscribeAuth();
-}, [router]); // Depends only on router, so runs once
+  }, [router]);
 
-// --- NEW DATA FETCHING EFFECT ---
-// This effect runs whenever the 'user' object changes (i.e., on login/logout)
-useEffect(() => {
+
+  // --- NEW DATA FETCHING EFFECT (RUNS ON USER CHANGE) ---
+  useEffect(() => {
+    // THIS 'if' PREVENTS THE CRASH ON LOGOUT
     if (user) {
-        // --- 1. FETCH USER-SPECIFIC DATA ---
-        // We assume fetchChecklists returns its own unsubscribe function for cleanup
-        const unsubscribeChecklists = fetchChecklists(user.uid, user.email);
-        fetchMyListings(user.uid);
-        fetchCommunityStandards();
+        // --- WEEKLY SUMMARY TRIGGER LOGIC ---
+        const lastSummary = localStorage.getItem('lastSummaryDate');
+        const oneWeekAgo = new Date();
+        oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+        if (!lastSummary || new Date(lastSummary) < oneWeekAgo) {
+            fetchWeeklySummary(user.uid);
+        }
 
-        // --- 2. CHECK VERIFICATION STATUS ---
+        fetchMyListings(user.uid);
+
+        // --- READ/CREATE isVerified STATUS FROM FIRESTORE ---
+        const userRef = doc(db, "users", user.uid);
         const checkVerification = async () => {
-            const userRef = doc(db, "users", user.uid);
             const userSnap = await getDoc(userRef);
             if (userSnap.exists() && userSnap.data().isDomainVerified) {
                 setIsVerified(true);
             } else {
+                await setDoc(userRef, { 
+                    email: user.email, 
+                    isDomainVerified: false,
+                    createdAt: serverTimestamp()
+                }, { merge: true });
                 setIsVerified(false);
             }
         };
         checkVerification();
+        
+        // Fetch all user-specific data
+        fetchChecklists(user.uid, user.email);
+        fetchCommunityStandards();
 
-        // --- 3. WEEKLY SUMMARY TRIGGER LOGIC ---
-        const lastSummary = localStorage.getItem('lastSummaryDate');
-        const oneWeekAgo = new Date();
-        oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-        
-        if (!lastSummary || new Date(lastSummary) < oneWeekAgo) {
-            fetchWeeklySummary(user.uid);
-        }
-        
-        // Return a cleanup function for the real-time listener
-        return () => {
-            if (unsubscribeChecklists) {
-                unsubscribeChecklists();
-            }
-        };
+    } else if (!loading) { // Only redirect if not on initial load
+        // No user is logged in, go to auth page
+        router.push('/auth');
     }
-}, [user]); // <-- THE CRITICAL CHANGE: This now depends on the user state
 
-// Separate useEffect for chat scrolling
-useEffect(() => {
+  }, [user, loading, router]); // Re-run when user, loading state, or router changes
+
+
+  // --- CHAT SCROLLING EFFECT (Remains separate) ---
+  useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-}, [activeChatChecklist?.messages]);
+  }, [activeChatChecklist?.messages]);
   // --- ACTIONS ---
   const saveApiKey = () => {
     localStorage.setItem('openai_key', apiKey);
