@@ -1,7 +1,14 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { 
+  doc, 
+  getDoc, 
+  updateDoc, 
+  addDoc,         // <--- ADD THIS
+  collection,     // <--- ADD THIS
+  serverTimestamp // <--- ADD THIS
+} from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useRouter, useParams } from 'next/navigation'; // <-- Added useParams
@@ -46,17 +53,29 @@ export default function InvitePage() {
     try {
         const checklistRef = doc(db, "checklists", checklist.id);
         
+        // 1. Update the Checklist
         await updateDoc(checklistRef, {
-            buyerUid: user.uid,   // CRITICAL: Links the buyer to the project
+            buyerUid: user.uid,
             buyerEmail: user.email,
-            agreementStatus: 'ready_to_sign' // Advances workflow
+            agreementStatus: 'ready_to_sign'
         });
 
-        alert("✅ You have accepted the project! Redirecting to dashboard...");
+        // 2. CREATE NOTIFICATION FOR SELLER (Client-Side)
+        // We write directly to the 'notifications' collection
+        await addDoc(collection(db, "notifications"), {
+            recipientId: checklist.uid, // The Seller
+            title: `Invitation Accepted: ${checklist.title}`,
+            message: `${user.email} has joined as the buyer.`,
+            link: `/report/${checklist.id}`,
+            isRead: false,
+            createdAt: serverTimestamp()
+        });
+
+        alert("✅ Project Accepted! Redirecting...");
         router.push('/dashboard');
     } catch (e) {
-        console.error("Error accepting invite:", e);
-        alert("Failed to accept invitation.");
+        console.error("Error:", e);
+        alert("Failed to accept.");
     }
   };
 

@@ -776,25 +776,42 @@ useEffect(() => {
     finally { setIsSaving(false); }
   };
 
-  const handleDigitalSign = async (checklist: Checklist, signer: 'A' | 'B') => {
+ const handleDigitalSign = async (checklist: Checklist, signer: 'A' | 'B') => {
     setSigningLoading(checklist.id);
-    setTimeout(async () => {
-        let newStatus = checklist.agreementStatus;
-        let updateData: any = {};
-        if (signer === 'A') {
-            newStatus = 'party_a_signed';
-            alert(`✅ Signed by Party A (${checklist.sellerEmail}). Encrypted Notification sent to Party B.`);
-        } else if (signer === 'B') {
-            newStatus = 'completed';
-            alert("✅ Agreement Fully Executed by Buyer! Generating Legal Contracts...");
-            generatePDF(checklist);
+    let newStatus = checklist.agreementStatus;
+    let recipientId = '';
+    let message = '';
+
+    if (signer === 'A') {
+        newStatus = 'party_a_signed';
+recipientId = checklist.buyerUid || ''; // Fallback to empty string if undefined
+        message = 'Seller has signed. Your turn.';
+    }
+    if (signer === 'B') {
+        newStatus = 'completed';
+        recipientId = checklist.uid; // Notify Seller
+        message = 'Buyer has signed. Contract executed.';
+    }
+
+    try {
+        // 1. Update Status
+        await updateDoc(doc(db, "checklists", checklist.id), { agreementStatus: newStatus as any });
+        
+        // 2. Send Notification (Client-Side)
+        if (recipientId) {
+            await addDoc(collection(db, "notifications"), {
+                recipientId: recipientId,
+                title: `Update on ${checklist.title}`,
+                message: message,
+                link: `/report/${checklist.id}`,
+                isRead: false,
+                createdAt: serverTimestamp()
+            });
         }
 
-        const checklistRef = doc(db, "checklists", checklist.id);
-        await updateDoc(checklistRef, { agreementStatus: newStatus });
-        updateData.signedAt = serverTimestamp();
-        setSigningLoading(null);
-    }, 2000);
+        if (newStatus === 'completed') generatePDF(checklist);
+    } catch(e) { console.error(e); }
+    finally { setSigningLoading(null); }
   };
 
   // --- UPDATED: PDF GENERATION WITH PLACEHOLDERS ---

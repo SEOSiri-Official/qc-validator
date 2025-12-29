@@ -517,7 +517,12 @@ exports.onDisputeCreated = functions.firestore
   .document('disputes/{disputeId}')
   .onCreate(async (snap, context) => {
     const dispute = snap.data();
-    
+    return createNotification(
+        after.uid,
+        `Buyer Joined: ${after.title}`,
+        `${after.buyerEmail} has accepted your invitation.`,
+        `/dashboard`
+         );
     // Notify the SELLER that a dispute has been opened against them
     return createNotification(
       dispute.sellerId,
