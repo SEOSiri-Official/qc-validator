@@ -460,68 +460,69 @@ const fetchWeeklySummary = async (userId: string) => {
         fetchMyListings(user.uid); 
     } catch(e) { console.error(e); }
   };
+// --- INITIALIZATION (STABLE & COMPLETE) ---
 useEffect(() => {
-    // Get non-user-specific settings from localStorage on initial load
+    // This effect runs only ONCE to set up the auth listener
     const localKey = localStorage.getItem('openai_key');
     if (localKey) setApiKey(localKey);
 
+    // This will hold the function to stop the Firestore listener
+    let unsubscribeFromChecklists: (() => void) | undefined;
+    
     const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
-      setUser(currentUser); // Set user state immediately (can be user or null)
-      setLoading(false);
-    });
-
-    return () => unsubscribeAuth();
-  }, [router]);
-
-
-  // --- NEW DATA FETCHING EFFECT (RUNS ON USER CHANGE) ---
-  useEffect(() => {
-    // THIS 'if' PREVENTS THE CRASH ON LOGOUT
-    if (user) {
+      if (currentUser) {
+        setUser(currentUser);
+        
         // --- WEEKLY SUMMARY TRIGGER LOGIC ---
         const lastSummary = localStorage.getItem('lastSummaryDate');
         const oneWeekAgo = new Date();
         oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
         if (!lastSummary || new Date(lastSummary) < oneWeekAgo) {
-            fetchWeeklySummary(user.uid);
+            fetchWeeklySummary(currentUser.uid);
         }
-
-        fetchMyListings(user.uid);
+        
+        fetchMyListings(currentUser.uid);
 
         // --- READ/CREATE isVerified STATUS FROM FIRESTORE ---
-        const userRef = doc(db, "users", user.uid);
-        const checkVerification = async () => {
-            const userSnap = await getDoc(userRef);
-            if (userSnap.exists() && userSnap.data().isDomainVerified) {
-                setIsVerified(true);
-            } else {
-                await setDoc(userRef, { 
-                    email: user.email, 
-                    isDomainVerified: false,
-                    createdAt: serverTimestamp()
-                }, { merge: true });
-                setIsVerified(false);
-            }
-        };
-        checkVerification();
+        const userRef = doc(db, "users", currentUser.uid);
+        const userSnap = await getDoc(userRef);
+        if (userSnap.exists() && userSnap.data().isDomainVerified) {
+          setIsVerified(true);
+        } else {
+          await setDoc(userRef, { 
+            email: currentUser.email, 
+            isDomainVerified: false,
+            createdAt: serverTimestamp()
+          }, { merge: true });
+          setIsVerified(false);
+        }
         
-        // Fetch all user-specific data
-        fetchChecklists(user.uid, user.email);
+        // --- FETCH DATA & STORE THE CLEANUP FUNCTION ---
+        if (unsubscribeFromChecklists) unsubscribeFromChecklists(); // Unsubscribe from previous user's data first
+        unsubscribeFromChecklists = fetchChecklists(currentUser.uid, currentUser.email);
         fetchCommunityStandards();
 
-    } else if (!loading) { // Only redirect if not on initial load
-        // No user is logged in, go to auth page
+      } else {
+        // No user is logged in
+        setUser(null);
+        if (unsubscribeFromChecklists) unsubscribeFromChecklists(); // CRITICAL: Stop listening on logout
         router.push('/auth');
-    }
+      }
+      setLoading(false);
+    });
 
-  }, [user, loading, router]); // Re-run when user, loading state, or router changes
+    // This function will be called when the component unmounts
+    return () => {
+        unsubscribeAuth();
+        if (unsubscribeFromChecklists) unsubscribeFromChecklists(); // Final cleanup
+    };
+}, [router]);
 
 
-  // --- CHAT SCROLLING EFFECT (Remains separate) ---
-  useEffect(() => {
+// --- Your other useEffect for chat scrolling remains the same ---
+useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [activeChatChecklist?.messages]);
-  // --- ACTIONS ---
+}, [activeChatChecklist?.messages]);  // --- ACTIONS ---
   const saveApiKey = () => {
     localStorage.setItem('openai_key', apiKey);
     setShowSettings(false);
