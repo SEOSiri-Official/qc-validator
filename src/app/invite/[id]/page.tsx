@@ -47,11 +47,11 @@ export default function InvitePage() {
     return () => unsubscribe();
   }, [inviteId, router]);
 
-  const handleAccept = async () => {
+const handleAccept = async () => {
     console.log("Attempting to accept. User:", user);
     console.log("Checklist data:", checklist);
 
-    if (!user || !checklist || !checklist.uid) { // <-- ADD a check for checklist.uid
+    if (!user || !checklist || !checklist.id) {
         alert("Error: Missing critical data. Cannot accept.");
         return;
     }
@@ -67,7 +67,6 @@ export default function InvitePage() {
         });
 
         // 2. CREATE NOTIFICATION FOR SELLER (Client-Side)
-        // We write directly to the 'notifications' collection
         await addDoc(collection(db, "notifications"), {
             recipientId: checklist.uid, // The Seller
             title: `Invitation Accepted: ${checklist.title}`,
@@ -79,6 +78,11 @@ export default function InvitePage() {
 
         alert("✅ Project Accepted! Redirecting...");
         router.push('/dashboard');
+        
+        // --- ADD THIS LINE ---
+        // Forces the dashboard to refetch data, ensuring the new project appears.
+        router.refresh(); 
+
     } catch (e) {
         console.error("Error:", e);
         alert("Failed to accept.");
