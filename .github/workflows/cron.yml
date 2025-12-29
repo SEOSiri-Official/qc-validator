@@ -4,20 +4,14 @@ on:
   schedule:
     # Runs at 01:00 UTC every day.
     - cron: "0 1 * * *"
-  workflow_dispatch:
+  workflow_dispatch: # Allows manual triggering from the Actions tab
 
 jobs:
   daily-tasks:
     runs-on: ubuntu-latest
     steps:
-      - name: Trigger Cron Job (Suggestions & Stale Listings)
+      - name: Trigger Daily Cron Job
         run: |
           curl --request POST \
             --url 'https://qcval.seosiri.com/api/cron' \
-            --header 'Authorization: Bearer ${{ secrets.CRON_SECRET }}'
-
-      - name: Trigger Sitemap Revalidation
-        run: |
-          curl --request POST \
-            --url 'https://qcval.seosiri.com/api/revalidate-sitemap' \
             --header 'Authorization: Bearer ${{ secrets.CRON_SECRET }}'

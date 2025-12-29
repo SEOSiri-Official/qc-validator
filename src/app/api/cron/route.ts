@@ -15,6 +15,8 @@ export async function POST(request: Request) {
         suggestionsSent: 0,
         staleArchived: 0,
         sitemapRevalidated: false,
+        domainsChecked: 0,
+        domainsRevoked: 0,
     };
 
     // --- TASK 1: Send Helpful Suggestions ---
@@ -51,8 +53,41 @@ export async function POST(request: Request) {
         results.staleArchived = staleSnapshot.size;
     }
 
-    // --- TASK 3: Revalidate Sitemap (Your existing logic) ---
-    // This tells Next.js to regenerate any pages tagged with 'sitemap' on the next visit.
+    // --- TASK 3: Continuous Domain Verification ---
+    const verifiedUsersQuery = db.collection('users').where('isDomainVerified', '==', true);
+    const snapshot = await verifiedUsersQuery.get();
+
+    if (!snapshot.empty) {
+        results.domainsChecked = snapshot.size;
+
+        const verificationPromises = snapshot.docs.map(async (doc) => {
+            const userData = doc.data();
+            const { verifiedDomain, verificationCode } = userData;
+            if (!verifiedDomain || !verificationCode) return;
+
+            try {
+                const response = await fetch(`https://${verifiedDomain}`);
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                
+                const html = await response.text();
+                const expectedTag = `<meta name="qc-validator-verification" content="${verificationCode}">`;
+
+                if (!html.includes(expectedTag)) {
+                    await doc.ref.update({ isDomainVerified: false });
+                    results.domainsRevoked++;
+                }
+            } catch (error) {
+                console.error(`Error fetching ${verifiedDomain}:`, error);
+                // Optionally revoke on failure
+                // await doc.ref.update({ isDomainVerified: false });
+                // results.domainsRevoked++;
+            }
+        });
+        
+        await Promise.all(verificationPromises);
+    }
+
+    // --- TASK 4: Revalidate Sitemap ---
     revalidateTag('sitemap');
     results.sitemapRevalidated = true;
 
