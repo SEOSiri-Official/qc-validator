@@ -569,6 +569,8 @@ useEffect(() => {
   };
 
   // --- REAL-TIME DATA FETCHER (ROBUST VERSION) ---
+ // dashboard/page.tsx
+
   const fetchChecklists = (userId: string, userEmail: string | null) => {
     if (!userId) return;
 
@@ -577,26 +579,43 @@ useEffect(() => {
     
     // 2. Query for projects where I am the BUYER
     //    We check both 'buyerEmail' (for initial invites) and 'buyerUid' (for claimed projects)
+    //    buyerQueryEmail is for when the seller *just* invited by email, before the buyer has accepted (buyerUid not set yet).
+    //    buyerQueryUid is for when the buyer has *accepted* and their UID is on the document.
     const buyerQueryEmail = userEmail ? query(collection(db, "checklists"), where("buyerEmail", "==", userEmail)) : null;
     const buyerQueryUid = query(collection(db, "checklists"), where("buyerUid", "==", userId));
 
     // Shared function to process ANY snapshot (Seller or Buyer)
     const processSnapshot = (snapshot: any) => {
         const newItems = snapshot.docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as Checklist));
-        // --- ADD THIS LOG ---
-        console.log("🔥 FIRESTORE FETCH:", newItems.length, "items found for user", userId);
-        if (newItems.length > 0) console.log("First Item UID:", newItems[0].uid);
-        // --------------------
+        
+        // --- WAS: (Your existing console.log) ---
+        // console.log("🔥 FIRESTORE FETCH:", newItems.length, "items found for user", userId);
+        // if (newItems.length > 0) console.log("First Item UID:", newItems[0].uid);
+        
+        // --- IS: (Improved console.log for clarity) ---
+        console.log(`🔥 FIRESTORE FETCH for ${userId}: ${newItems.length} items found. Source: ${snapshot.metadata.fromCache ? 'cache' : 'server'}.`);
+        if (newItems.length > 0) {
+            console.log("First Item Data:", {
+                id: newItems[0].id,
+                title: newItems[0].title,
+                uid: newItems[0].uid,
+                buyerUid: newItems[0].buyerUid,
+                agreementStatus: newItems[0].agreementStatus
+            });
+        }
+        // ------------------------------------------
         
         // Merge into state without duplicates
         setSavedChecklists(prev => {
-            const combinedMap = new Map();
+            const combinedMap = new Map<string, Checklist>(); // Use Map for efficient merging
+            
             // Add existing items to map
             prev.forEach(item => combinedMap.set(item.id, item));
-            // Add/Overwrite with new items
+            
+            // Add/Overwrite with new items from the current snapshot
             newItems.forEach((item: any) => combinedMap.set(item.id, item));
             
-            // Convert back to array and sort
+            // Convert back to array and sort by creation date (newest first)
             return Array.from(combinedMap.values()).sort((a:any, b:any) => 
                 (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)
             );
@@ -633,7 +652,7 @@ useEffect(() => {
     const unsubscribeSeller = onSnapshot(sellerQuery, processSnapshot);
     const unsubscribeBuyerUid = onSnapshot(buyerQueryUid, processSnapshot);
     
-    let unsubscribeBuyerEmail = () => {};
+    let unsubscribeBuyerEmail: (() => void) | undefined; // Initialize as undefined
     if (buyerQueryEmail) {
         unsubscribeBuyerEmail = onSnapshot(buyerQueryEmail, processSnapshot);
     }
@@ -642,10 +661,9 @@ useEffect(() => {
     return () => {
         unsubscribeSeller();
         unsubscribeBuyerUid();
-        unsubscribeBuyerEmail();
+        if (unsubscribeBuyerEmail) unsubscribeBuyerEmail(); // Only unsubscribe if it was set
     };
   };
-
   // --- INTELLIGENT PARAMETER SELECTION LOGIC ---
   const getActiveParameters = () => {
     if (selectedType === 'software') return STANDARD_PARAMS.software;
