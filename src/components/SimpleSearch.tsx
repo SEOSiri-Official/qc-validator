@@ -10,6 +10,7 @@ interface SimpleSearchProps {
   onClose: () => void;
   savedChecklists: any[];
   user?: any;
+    setShowGroupSelector: (checklist: any) => void;
 }
 
 export default function SimpleSearch({ isOpen, onClose, savedChecklists, user }: SimpleSearchProps) { 
