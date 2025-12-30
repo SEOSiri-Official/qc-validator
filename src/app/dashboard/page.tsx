@@ -984,29 +984,6 @@ const handlePublish = (checklist: any) => {
   };
 
 // --- UPDATED FILTER LOGIC (Linked to Tabs) ---
-  const filteredChecklists = savedChecklists.filter(list => {
-    // 1. Search Query Filter
-    const query = searchQuery.toLowerCase();
-    const matchesSearch = 
-      list.title.toLowerCase().includes(query) ||
-      (list.standard || '').toLowerCase().includes(query) ||
-      (list.industry || '').toLowerCase().includes(query) ||
-      (list.agreementStatus || '').toLowerCase().includes(query) ||
-      (list.score + '%').includes(query);
-
-    // 2. Role Filter based on viewMode (Tabs)
-    let matchesRole = false;
-    const isSeller = list.uid === user.uid;
-    const isBuyer = (list.buyerUid && list.buyerUid === user.uid) || (list.buyerEmail && list.buyerEmail === user.email);
-
-    if (viewMode === 'all') {
-    } else if (viewMode === 'selling') {
-        matchesRole = isSeller;
-    } else if (viewMode === 'buying') {
-    }
-
-    return matchesSearch && matchesRole;
-  });
 
 if (loading) return (
     <div className="min-h-screen bg-gray-50 p-8 animate-pulse">
@@ -1034,6 +1011,29 @@ if (loading) return (
   );
     if (!user) return null;
     
+      const filteredChecklists = savedChecklists.filter(list => {
+    // 1. Search Query Filter
+    const query = searchQuery.toLowerCase();
+    const matchesSearch = 
+      list.title.toLowerCase().includes(query) ||
+      (list.standard || '').toLowerCase().includes(query) ||
+      (list.industry || '').toLowerCase().includes(query) ||
+      (list.agreementStatus || '').toLowerCase().includes(query) ||
+      (list.score + '%').includes(query);
+
+    // 2. Role Filter based on viewMode (Tabs)
+    let matchesRole = false;
+    const isSeller = list.uid === user.uid;
+    const isBuyer = (list.buyerUid && list.buyerUid === user.uid) || (list.buyerEmail && list.buyerEmail === user.email);
+
+    if (viewMode === 'all') {
+    } else if (viewMode === 'selling') {
+        matchesRole = isSeller;
+    } else if (viewMode === 'buying') {
+    }
+
+    return matchesSearch && matchesRole;
+  });
 
   // --- RENDER ---
   console.log("👀 RENDER: Filtered Checklists count:", filteredChecklists.length);

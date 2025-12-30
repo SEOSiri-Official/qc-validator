@@ -51,8 +51,8 @@ export default function SimpleSearch({ isOpen, onClose, savedChecklists, user }:
   // --- ROBUST FILTERING LOGIC ---
   const lowerQuery = queryText.toLowerCase();
 
-  const filteredProjects = savedChecklists.filter(list => 
-    list.title.toLowerCase().includes(lowerQuery) ||
+const filteredProjects = (savedChecklists || []).filter(list =>
+      list.title.toLowerCase().includes(lowerQuery) ||
     list.industry.toLowerCase().includes(lowerQuery) ||
     list.standard.toLowerCase().includes(lowerQuery)
   );
