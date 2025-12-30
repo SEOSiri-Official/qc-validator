@@ -73,8 +73,8 @@ const handleAccept = async () => {
             message: `${user.email} has joined as the buyer.`,
             link: `/report/${checklist.id}`,
             isRead: false,
-            createdAt: new Date()
-        });
+            createdAt: new Date()       
+         });
 
         alert("✅ Project Accepted! Redirecting...");
         router.push('/dashboard');
