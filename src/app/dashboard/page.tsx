@@ -1045,6 +1045,7 @@ if (loading) return (
         onClose={() => setOpenCommandPalette(false)} // Pass the close handler
         savedChecklists={savedChecklists}
         user={user}
+        setShowGroupSelector={setShowGroupSelector}
     />
 
     <div className="min-h-screen bg-gray-50 font-sans text-gray-900 relative">
