@@ -999,8 +999,9 @@ if (loading) return (
   );
     if (!user) return null;
     
- const filteredChecklists = savedChecklists.filter(list => {
-    // 1. Search Query Filter
+ // --- REPLACEMENT BLOCK FOR FILTER LOGIC ---
+  const filteredChecklists = savedChecklists.filter(list => {
+    // 1. Search Query
     const query = searchQuery.toLowerCase();
     const matchesSearch = 
       list.title.toLowerCase().includes(query) ||
@@ -1009,19 +1010,20 @@ if (loading) return (
       (list.agreementStatus || '').toLowerCase().includes(query) ||
       (list.score + '%').includes(query);
 
-    // 2. Role Filter based on viewMode (Tabs)
-    let matchesRole = false;
+    // 2. Role Filter
     const isSeller = list.uid === user.uid;
-    // Check if user is the assigned buyer (via UID) or the invited buyer (via Email)
+    // Check match by UID (Accepted) OR Email (Invited)
     const isBuyer = (list.buyerUid && list.buyerUid === user.uid) || 
                     (list.buyerEmail && list.buyerEmail === user.email);
 
+    let matchesRole = false;
+    
     if (viewMode === 'all') {
-        matchesRole = isSeller || !!isBuyer; // Fix: Allow both
+        matchesRole = isSeller || !!isBuyer; // Show All
     } else if (viewMode === 'selling') {
-        matchesRole = isSeller;
+        matchesRole = isSeller; // Show Selling
     } else if (viewMode === 'buying') {
-        matchesRole = !!isBuyer; // Fix: Allow buying
+        matchesRole = !!isBuyer; // Show Buying (FIXED)
     }
 
     return matchesSearch && matchesRole;
@@ -1033,7 +1035,7 @@ if (loading) return (
     <> 
     {/* Use the new SimpleSearch instead of CommandPalette */}
     <SimpleSearch 
-        isOpen={openCommandPalette} 
+    isOpen={!!openCommandPalette} 
         onClose={() => setOpenCommandPalette(false)} // Pass the close handler
         savedChecklists={savedChecklists}
         user={user}
