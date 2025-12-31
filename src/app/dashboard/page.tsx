@@ -398,59 +398,65 @@ const publishToListing = async (groupId: string) => {
     }
 };
 
- // --- INITIALIZATION (PRODUCTION READY & MERGED) ---
+ // --- INITIALIZATION (FULL FEATURES + STABILITY FIX) ---
 
-// --- INITIALIZATION (STANDARD FUNCTIONS - FIXES ERROR 321) ---
-
-  // 1. STANDARD FUNCTION (No useCallback - Safe Mode)
+  // 1. STANDARD FUNCTION (Restored Full Logic)
   const fetchCommunityStandards = async () => {
-    const standardsQuery = query(collection(db, "nationalStandards"));
-    const querySnapshot = await getDocs(standardsQuery);
-    const standardsList: any[] = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-    }));
-    standardsList.sort((a, b) => (b.endorsementCount || 0) - (a.endorsementCount || 0));
-    setCommunityStandards(standardsList);
+    try {
+        const standardsQuery = query(collection(db, "nationalStandards"));
+        const querySnapshot = await getDocs(standardsQuery);
+        const standardsList: any[] = querySnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        }));
+        standardsList.sort((a, b) => (b.endorsementCount || 0) - (a.endorsementCount || 0));
+        setCommunityStandards(standardsList);
+    } catch (e) { console.error("Standards Error:", e); }
   };
 
   // 2. STANDARD FUNCTION
   const fetchMyListings = async (userId: string) => {
-    const q = query(collection(db, 'market_listings'), where('sellerId', '==', userId));
-    const querySnapshot = await getDocs(q);
-    setMyListings(querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    try {
+        const q = query(collection(db, 'market_listings'), where('sellerId', '==', userId));
+        const querySnapshot = await getDocs(q);
+        setMyListings(querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    } catch (e) { console.error("Listings Error:", e); }
   };
 
-  // 3. WEEKLY SUMMARY
+  // 3. WEEKLY SUMMARY (FULL LOGIC RESTORED)
   const fetchWeeklySummary = async (userId: string) => {
-    const oneWeekAgo = new Date();
-    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+    try {
+        const oneWeekAgo = new Date();
+        oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
 
-    const reportsQuery = query(
-        collection(db, 'checklists'), 
-        where('uid', '==', userId), 
-        where('agreementStatus', '==', 'completed'),
-        where('createdAt', '>', oneWeekAgo)
-    );
+        // Query 1: Completed reports
+        const reportsQuery = query(
+            collection(db, 'checklists'), 
+            where('uid', '==', userId), 
+            where('agreementStatus', '==', 'completed'),
+            where('createdAt', '>', oneWeekAgo)
+        );
 
-    const listingsQuery = query(
-        collection(db, 'market_listings'),
-        where('sellerId', '==', userId),
-        where('listedAt', '>', oneWeekAgo)
-    );
+        // Query 2: New listings
+        const listingsQuery = query(
+            collection(db, 'market_listings'),
+            where('sellerId', '==', userId),
+            where('listedAt', '>', oneWeekAgo)
+        );
 
-    const [reportsSnap, listingsSnap] = await Promise.all([
-        getDocs(reportsQuery),
-        getDocs(listingsQuery)
-    ]);
-    
-    setSummaryData({
-        reportsCompleted: reportsSnap.size,
-        newListings: listingsSnap.size,
-        newMessages: 0, 
-    });
-    setShowSummary(true);
-    localStorage.setItem('lastSummaryDate', new Date().toISOString());
+        const [reportsSnap, listingsSnap] = await Promise.all([
+            getDocs(reportsQuery),
+            getDocs(listingsQuery)
+        ]);
+        
+        setSummaryData({
+            reportsCompleted: reportsSnap.size,
+            newListings: listingsSnap.size,
+            newMessages: 0, 
+        });
+        setShowSummary(true);
+        localStorage.setItem('lastSummaryDate', new Date().toISOString());
+    } catch (e) { console.error("Summary Error:", e); }
   };
 
   // 4. DELETE LISTING
@@ -462,71 +468,78 @@ const publishToListing = async (groupId: string) => {
     } catch(e) { console.error(e); }
   };
 
-  // 5. FETCH CHECKLISTS (STANDARD FUNCTION - NO CALLBACK)
-  // This removes the complexity causing the React #321 error
+  // 5. FETCH CHECKLISTS (FULL LOGIC: Invites + Notifications + Chat)
   const fetchChecklists = (userId: string, userEmail: string | null) => {
     if (!userId) return () => {};
 
-    const sellerQuery = query(collection(db, "checklists"), where("uid", "==", userId));
-    
-    const buyerQueryEmail = userEmail ? query(collection(db, "checklists"), where("buyerEmail", "==", userEmail)) : null;
-    const buyerQueryUid = query(collection(db, "checklists"), where("buyerUid", "==", userId));
-
-    const processSnapshot = (snapshot: any) => {
-        const newItems = snapshot.docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as Checklist));
+    try {
+        // 1. Seller Query
+        const sellerQuery = query(collection(db, "checklists"), where("uid", "==", userId));
         
-        console.log(`🔥 FIRESTORE FETCH for ${userId}: ${newItems.length} items found.`);
-        
-        setSavedChecklists(prev => {
-            const combinedMap = new Map<string, Checklist>(); 
-            prev.forEach(item => combinedMap.set(item.id, item));
-            newItems.forEach((item: any) => combinedMap.set(item.id, item));
-            return Array.from(combinedMap.values()).sort((a:any, b:any) => 
-                (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)
-            );
-        });
+        // 2. Buyer Queries (RESTORED EMAIL QUERY FOR INVITES)
+        const buyerQueryEmail = userEmail ? query(collection(db, "checklists"), where("buyerEmail", "==", userEmail)) : null;
+        const buyerQueryUid = query(collection(db, "checklists"), where("buyerUid", "==", userId));
 
-        snapshot.docChanges().forEach((change: any) => {
-            const data = { id: change.doc.id, ...change.doc.data() } as Checklist;
+        const processSnapshot = (snapshot: any) => {
+            const newItems = snapshot.docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as Checklist));
             
-            // Auto-update active chat if open
-            if (activeChatChecklist && activeChatChecklist.id === data.id) {
-                setActiveChatChecklist(data);
-            }
+            console.log(`🔥 FIRESTORE FETCH for ${userId}: ${newItems.length} items found.`);
+            
+            setSavedChecklists(prev => {
+                const combinedMap = new Map<string, Checklist>(); 
+                prev.forEach(item => combinedMap.set(item.id, item));
+                newItems.forEach((item: any) => combinedMap.set(item.id, item));
+                return Array.from(combinedMap.values()).sort((a:any, b:any) => 
+                    (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)
+                );
+            });
 
-            // Meeting Notification Trigger
-            if (change.type === "modified" && data.meetingStartedAt) {
-                const meetingTimestamp = data.meetingStartedAt?.toDate();
-                if (meetingTimestamp && (new Date().getTime() - meetingTimestamp.getTime()) < 60000) {
-                    if (data.lastMeetingInitiator !== userId) {
-                        setMeetingNotification({
-                            title: data.title,
-                            checklist: data,
-                            platform: data.activeMeetingPlatform || 'meet'
-                        });
+            // --- RESTORED NOTIFICATIONS ---
+            snapshot.docChanges().forEach((change: any) => {
+                const data = { id: change.doc.id, ...change.doc.data() } as Checklist;
+                
+                // Auto-update active chat
+                if (activeChatChecklist && activeChatChecklist.id === data.id) {
+                    setActiveChatChecklist(data);
+                }
+
+                // Meeting Notification
+                if (change.type === "modified" && data.meetingStartedAt) {
+                    const meetingTimestamp = data.meetingStartedAt?.toDate();
+                    if (meetingTimestamp && (new Date().getTime() - meetingTimestamp.getTime()) < 60000) {
+                        if (data.lastMeetingInitiator !== userId) {
+                            setMeetingNotification({
+                                title: data.title,
+                                checklist: data,
+                                platform: data.activeMeetingPlatform || 'meet'
+                            });
+                        }
                     }
                 }
-            }
-        });
-    };
+            });
+        };
 
-    const unsubscribeSeller = onSnapshot(sellerQuery, processSnapshot);
-    const unsubscribeBuyerUid = onSnapshot(buyerQueryUid, processSnapshot);
-    
-    let unsubscribeBuyerEmail: (() => void) | undefined;
-    if (buyerQueryEmail) {
-        unsubscribeBuyerEmail = onSnapshot(buyerQueryEmail, processSnapshot);
+        // Activate Listeners
+        const unsubscribeSeller = onSnapshot(sellerQuery, processSnapshot);
+        const unsubscribeBuyerUid = onSnapshot(buyerQueryUid, processSnapshot);
+        
+        let unsubscribeBuyerEmail: (() => void) | undefined;
+        if (buyerQueryEmail) {
+            unsubscribeBuyerEmail = onSnapshot(buyerQueryEmail, processSnapshot);
+        }
+
+        return () => {
+            unsubscribeSeller();
+            unsubscribeBuyerUid();
+            if (unsubscribeBuyerEmail) unsubscribeBuyerEmail(); 
+        };
+    } catch (error) {
+        console.error("Fetch Error:", error);
+        return () => {};
     }
-
-    return () => {
-        unsubscribeSeller();
-        unsubscribeBuyerUid();
-        if (unsubscribeBuyerEmail) unsubscribeBuyerEmail(); 
-    };
   };
 
-  // --- INITIALIZATION (STABLE & COMPLETE) ---
-// --- INITIALIZATION (UPDATED FOR STANDARD FUNCTIONS) ---
+  // --- MAIN USE EFFECT ---
   useEffect(() => {
     const localKey = localStorage.getItem('openai_key');
     if (localKey) setApiKey(localKey);
@@ -552,17 +565,11 @@ const publishToListing = async (groupId: string) => {
         fetchCommunityStandards();
 
         const userRef = doc(db, "users", currentUser.uid);
-        const userSnap = await getDoc(userRef);
-        if (userSnap.exists() && userSnap.data().isDomainVerified) {
-          setIsVerified(true);
-        } else {
-          await setDoc(userRef, { 
-            email: currentUser.email, 
-            isDomainVerified: false,
-            createdAt: serverTimestamp()
-          }, { merge: true });
-          setIsVerified(false);
-        }
+        getDoc(userRef).then((snap) => {
+             if (snap.exists() && snap.data().isDomainVerified) setIsVerified(true);
+             else setDoc(userRef, { email: currentUser.email, isDomainVerified: false, createdAt: serverTimestamp() }, { merge: true });
+        });
+
       } else {
         setUser(null);
         if (unsubscribeFromChecklistsRef.current) unsubscribeFromChecklistsRef.current(); 
@@ -576,7 +583,7 @@ const publishToListing = async (groupId: string) => {
         if (unsubscribeFromChecklistsRef.current) unsubscribeFromChecklistsRef.current(); 
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [router]); // Dependencies removed to prevent loops with standard functions
+  }, [router]);
 
 
   // --- CHAT SCROLL EFFECT ---
