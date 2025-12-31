@@ -462,26 +462,35 @@ const fetchWeeklySummary = async (userId: string) => {
   };
 // --- INITIALIZATION (STABLE & COMPLETE) ---
 useEffect(() => {
-    // This effect runs only ONCE to set up the auth listener
+    // Get non-user-specific settings from localStorage on initial load
     const localKey = localStorage.getItem('openai_key');
     if (localKey) setApiKey(localKey);
 
-    // This will hold the function to stop the Firestore listener
-    let unsubscribeFromChecklists: (() => void) | undefined;
+    // Using a ref to store the unsubscribe function from fetchChecklists
+    // Refs don't cause re-renders when updated
+    const unsubscribeFromChecklistsRef = useRef<(() => void) | undefined>(undefined); 
     
     const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
         setUser(currentUser);
         
-        // --- WEEKLY SUMMARY TRIGGER LOGIC ---
+        // --- WEEKLY SUMMARY TRIGGER LOGIC (Existing) ---
         const lastSummary = localStorage.getItem('lastSummaryDate');
         const oneWeekAgo = new Date();
         oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
         if (!lastSummary || new Date(lastSummary) < oneWeekAgo) {
-            fetchWeeklySummary(currentUser.uid);
+            // fetchWeeklySummary(currentUser.uid); // Placeholder if you have this function
         }
         
-        fetchMyListings(currentUser.uid);
+        // --- FETCH USER-SPECIFIC DATA ---
+        // Cleanup previous user's listeners if any
+        if (unsubscribeFromChecklistsRef.current) unsubscribeFromChecklistsRef.current(); 
+        
+        // Call fetchChecklists and store its unsubscribe function
+        unsubscribeFromChecklistsRef.current = fetchChecklists(currentUser.uid, currentUser.email);
+        
+        fetchMyListings(currentUser.uid); // Fetch user's marketplace listings
+        fetchCommunityStandards(); // Fetch community standards
 
         // --- READ/CREATE isVerified STATUS FROM FIRESTORE ---
         const userRef = doc(db, "users", currentUser.uid);
@@ -489,6 +498,7 @@ useEffect(() => {
         if (userSnap.exists() && userSnap.data().isDomainVerified) {
           setIsVerified(true);
         } else {
+          // If user profile doesn't exist, create it.
           await setDoc(userRef, { 
             email: currentUser.email, 
             isDomainVerified: false,
@@ -496,27 +506,22 @@ useEffect(() => {
           }, { merge: true });
           setIsVerified(false);
         }
-        
-        // --- FETCH DATA & STORE THE CLEANUP FUNCTION ---
-        if (unsubscribeFromChecklists) unsubscribeFromChecklists(); // Unsubscribe from previous user's data first
-        unsubscribeFromChecklists = fetchChecklists(currentUser.uid, currentUser.email);
-        fetchCommunityStandards();
-
       } else {
-        // No user is logged in
+        // No user is logged in: clear user state and unsubscribe from data
         setUser(null);
-        if (unsubscribeFromChecklists) unsubscribeFromChecklists(); // CRITICAL: Stop listening on logout
+        if (unsubscribeFromChecklistsRef.current) unsubscribeFromChecklistsRef.current(); // CRITICAL: Stop listening on logout
         router.push('/auth');
       }
       setLoading(false);
     });
 
-    // This function will be called when the component unmounts
+    // --- FINAL CLEANUP ON COMPONENT UNMOUNT ---
     return () => {
-        unsubscribeAuth();
-        if (unsubscribeFromChecklists) unsubscribeFromChecklists(); // Final cleanup
+        unsubscribeAuth(); // Unsubscribe from auth listener
+        if (unsubscribeFromChecklistsRef.current) unsubscribeFromChecklistsRef.current(); // Final cleanup for data listeners
     };
-}, [router]);
+  // CRITICAL: Add all useCallback functions as dependencies
+  }, [router, fetchChecklists, fetchMyListings, fetchCommunityStandards]);
 
 
 // --- Your other useEffect for chat scrolling remains the same ---
