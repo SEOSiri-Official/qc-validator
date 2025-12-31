@@ -115,15 +115,20 @@ const handleAccept = async () => {
         console.log("handleAccept: Checklist updated successfully in Firestore.");
 
         // 2. ATTEMPT TO CREATE NOTIFICATION FOR SELLER (Client-Side)
-        await addDoc(notificationRef, {
-            recipientId: checklist.uid, // The Seller (original owner)
-            title: `Invitation Accepted: "${checklist.title}"`,
-            message: `${user.email} has joined your project as the buyer.`,
-            link: `/dashboard`, // Link to the seller's dashboard
-            isRead: false,
-            createdAt: new Date() // Corrected for client-side
-        });
-        console.log("handleAccept: Notification created for seller.");
+        // We wrap this in a sub-try/catch so if notification fails (minor issue), the acceptance (major issue) still works.
+        try {
+            await addDoc(notificationRef, {
+                recipientId: checklist.uid, // The Seller (original owner)
+                title: `Invitation Accepted: "${checklist.title}"`,
+                message: `${user.email} has joined your project as the buyer.`,
+                link: `/dashboard`, // Link to the seller's dashboard
+                isRead: false,
+                createdAt: serverTimestamp() // UPDATED: Use serverTimestamp for Firestore consistency
+            });
+            console.log("handleAccept: Notification created for seller.");
+        } catch (notifError) {
+            console.warn("handleAccept: Notification failed (non-critical):", notifError);
+        }
 
         alert("✅ Project Accepted! Redirecting to dashboard...");
         router.push('/dashboard');
@@ -143,7 +148,7 @@ const handleAccept = async () => {
         alert(`Failed to accept: ${errorMessage}. Please check the console for details.`);
     }
   };
-
+  
   if (loading) return <div className="p-10 text-center text-gray-500">Loading invitation details...</div>;
   if (!checklist) return <div className="p-10 text-center text-red-500">Invitation not found or invalid.</div>;
 
