@@ -25,8 +25,7 @@ import WeeklySummaryModal from '@/components/WeeklySummaryModal';
 import ReferralSection from '@/components/ReferralSection';
 import DisputeModal from '@/components/DisputeModal';
 import SimpleSearch from '@/components/SimpleSearch';
-import { useEffect, useState, useRef, ChangeEvent } from 'react';
-
+import { useEffect, useState, useRef, ChangeEvent, useCallback } from 'react';
 
 // --- TYPES & INTERFACES ---
 type QCType = 'physical' | 'service' | 'software';
@@ -252,7 +251,7 @@ export default function Dashboard() {
     setComplianceCheck(e.target.checked);
 };
 const [complianceCheck, setComplianceCheck] = useState<boolean>(false);
-
+const unsubscribeFromChecklistsRef = useRef<(() => void) | undefined>(undefined);
 
   // -- Auth State --
   const [user, setUser] = useState<any>(null);
@@ -554,15 +553,33 @@ const fetchWeeklySummary = async (userId: string) => {
         if (unsubscribeBuyerEmail) unsubscribeBuyerEmail(); // Only unsubscribe if it was set
     };
   };
+  // --- ADD THESE BEFORE THE useEffect (around line 460) ---
+const fetchChecklistsMemoized = useCallback((userId: string, userEmail: string | null) => {
+    return fetchChecklists(userId, userEmail);
+}, []);
+
+const fetchMyListingsMemoized = useCallback(async (userId: string) => {
+    const q = query(collection(db, 'market_listings'), where('sellerId', '==', userId));
+    const querySnapshot = await getDocs(q);
+    setMyListings(querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+}, []);
+
+const fetchCommunityStandardsMemoized = useCallback(async () => {
+    const standardsQuery = query(collection(db, "nationalStandards"));
+    const querySnapshot = await getDocs(standardsQuery);
+    const standardsList: any[] = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+    }));
+    standardsList.sort((a, b) => (b.endorsementCount || 0) - (a.endorsementCount || 0));
+    setCommunityStandards(standardsList);
+}, []);
 // --- INITIALIZATION (STABLE & COMPLETE) ---
+// --- CORRECTED useEffect ---
 useEffect(() => {
     // Get non-user-specific settings from localStorage on initial load
     const localKey = localStorage.getItem('openai_key');
     if (localKey) setApiKey(localKey);
-
-    // Using a ref to store the unsubscribe function from fetchChecklists
-    // Refs don't cause re-renders when updated
-    const unsubscribeFromChecklistsRef = useRef<(() => void) | undefined>(undefined); 
     
     const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
@@ -581,10 +598,10 @@ useEffect(() => {
         if (unsubscribeFromChecklistsRef.current) unsubscribeFromChecklistsRef.current(); 
         
         // Call fetchChecklists and store its unsubscribe function
-        unsubscribeFromChecklistsRef.current = fetchChecklists(currentUser.uid, currentUser.email);
+        unsubscribeFromChecklistsRef.current = fetchChecklistsMemoized(currentUser.uid, currentUser.email);
         
-        fetchMyListings(currentUser.uid); // Fetch user's marketplace listings
-        fetchCommunityStandards(); // Fetch community standards
+        fetchMyListingsMemoized(currentUser.uid); // Fetch user's marketplace listings
+        fetchCommunityStandardsMemoized(); // Fetch community standards
 
         // --- READ/CREATE isVerified STATUS FROM FIRESTORE ---
         const userRef = doc(db, "users", currentUser.uid);
@@ -614,8 +631,8 @@ useEffect(() => {
         unsubscribeAuth(); // Unsubscribe from auth listener
         if (unsubscribeFromChecklistsRef.current) unsubscribeFromChecklistsRef.current(); // Final cleanup for data listeners
     };
-  // CRITICAL: Add all useCallback functions as dependencies
-  }, [router, fetchChecklists, fetchMyListings, fetchCommunityStandards]);
+  // CRITICAL: Now using memoized versions to prevent infinite loops
+  }, [router, fetchChecklistsMemoized, fetchMyListingsMemoized, fetchCommunityStandardsMemoized]);
 
 
 // --- Your other useEffect for chat scrolling remains the same ---
