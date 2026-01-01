@@ -30,10 +30,33 @@ export default function StandardsHubPage() {
   const [showCreator, setShowCreator] = useState(false);
 
   // Correct useEffect for this page
-  useEffect(() => {
+useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, setUser);
-    const unsubscribeStandards = FirestoreService.subscribeToCommunityStandards(setStandards as any);
+
+    // Initialize with a safe default (an empty function)
+    let unsubscribeStandards: any = () => {}; 
+    
+    try {
+        const sub = FirestoreService.subscribeToCommunityStandards((data: any) => {
+            // Safety check: ensure the data is an array before setting state
+            if (Array.isArray(data)) {
+                setStandards(data);
+            } else {
+                setStandards([]); // Set to empty array to prevent map errors
+            }
+        });
+        
+        // Only assign the cleanup function if it's actually a function
+        if (typeof sub === 'function') {
+            unsubscribeStandards = sub;
+        }
+    } catch (err) {
+        console.error("Failed to subscribe to Firestore standards:", err);
+    }
+
     setLoading(false);
+
+    // This cleanup is now safe because unsubscribeStandards is guaranteed to be a function
     return () => {
       unsubscribeAuth();
       unsubscribeStandards();
