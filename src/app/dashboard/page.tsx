@@ -25,7 +25,7 @@ import WeeklySummaryModal from '@/components/WeeklySummaryModal';
 import ReferralSection from '@/components/ReferralSection';
 import DisputeModal from '@/components/DisputeModal';
 import SimpleSearch from '@/components/SimpleSearch';
-import { useEffect, useState, useRef, ChangeEvent, useCallback } from 'react';
+import { useEffect, useState, useRef, ChangeEvent } from 'react';
 
 
 // --- TYPES & INTERFACES ---
@@ -399,200 +399,229 @@ const publishToListing = async (groupId: string) => {
     }
 };
 
- // --- INITIALIZATION (FULL FEATURES + STABILITY FIX) ---
-
-  // 1. STANDARD FUNCTION (Restored Full Logic)
+  // --- INITIALIZATION (PRODUCTION READY & MERGED) ---
   const fetchCommunityStandards = async () => {
-    try {
-        const standardsQuery = query(collection(db, "nationalStandards"));
-        const querySnapshot = await getDocs(standardsQuery);
-        const standardsList: any[] = querySnapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-        }));
-        standardsList.sort((a, b) => (b.endorsementCount || 0) - (a.endorsementCount || 0));
-        setCommunityStandards(standardsList);
-    } catch (e) { console.error("Standards Error:", e); }
+    const standardsQuery = query(collection(db, "nationalStandards"));
+    const querySnapshot = await getDocs(standardsQuery);
+    const standardsList: any[] = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+    }));
+    standardsList.sort((a, b) => (b.endorsementCount || 0) - (a.endorsementCount || 0));
+    setCommunityStandards(standardsList);
   };
 
-  // 2. STANDARD FUNCTION
   const fetchMyListings = async (userId: string) => {
-    try {
-        const q = query(collection(db, 'market_listings'), where('sellerId', '==', userId));
-        const querySnapshot = await getDocs(q);
-        setMyListings(querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    } catch (e) { console.error("Listings Error:", e); }
+    const q = query(collection(db, 'market_listings'), where('sellerId', '==', userId));
+    const querySnapshot = await getDocs(q);
+    setMyListings(querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+};
+
+const fetchWeeklySummary = async (userId: string) => {
+    const oneWeekAgo = new Date();
+    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+
+    // Query 1: Completed reports in the last week
+    const reportsQuery = query(
+        collection(db, 'checklists'), 
+        where('uid', '==', userId), 
+        where('agreementStatus', '==', 'completed'),
+        where('createdAt', '>', oneWeekAgo)
+    );
+
+    // Query 2: New listings in the last week
+    const listingsQuery = query(
+        collection(db, 'market_listings'),
+        where('sellerId', '==', userId),
+        where('listedAt', '>', oneWeekAgo)
+    );
+
+    const [reportsSnap, listingsSnap] = await Promise.all([
+        getDocs(reportsQuery),
+        getDocs(listingsQuery)
+    ]);
+    
+    // (Note: New messages count would require more complex logic, so we'll start with these two)
+    setSummaryData({
+        reportsCompleted: reportsSnap.size,
+        newListings: listingsSnap.size,
+        newMessages: 0, // Placeholder
+    });
+    setShowSummary(true);
+
+    // Update the timestamp in localStorage
+    localStorage.setItem('lastSummaryDate', new Date().toISOString());
   };
-
-  // 3. WEEKLY SUMMARY (FULL LOGIC RESTORED)
-  const fetchWeeklySummary = async (userId: string) => {
-    try {
-        const oneWeekAgo = new Date();
-        oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-
-        // Query 1: Completed reports
-        const reportsQuery = query(
-            collection(db, 'checklists'), 
-            where('uid', '==', userId), 
-            where('agreementStatus', '==', 'completed'),
-            where('createdAt', '>', oneWeekAgo)
-        );
-
-        // Query 2: New listings
-        const listingsQuery = query(
-            collection(db, 'market_listings'),
-            where('sellerId', '==', userId),
-            where('listedAt', '>', oneWeekAgo)
-        );
-
-        const [reportsSnap, listingsSnap] = await Promise.all([
-            getDocs(reportsQuery),
-            getDocs(listingsQuery)
-        ]);
-        
-        setSummaryData({
-            reportsCompleted: reportsSnap.size,
-            newListings: listingsSnap.size,
-            newMessages: 0, 
-        });
-        setShowSummary(true);
-        localStorage.setItem('lastSummaryDate', new Date().toISOString());
-    } catch (e) { console.error("Summary Error:", e); }
-  };
-
-  // 4. DELETE LISTING
+// --- DELETE LISTING FUNCTION ---
   const deleteListing = async (listingId: string) => {
     if(!confirm("Remove this listing from the marketplace?")) return;
     try {
         await deleteDoc(doc(db, "market_listings", listingId));
-        if (user) fetchMyListings(user.uid); 
+        fetchMyListings(user.uid); 
     } catch(e) { console.error(e); }
   };
 
-  // 5. FETCH CHECKLISTS (FULL LOGIC: Invites + Notifications + Chat)
-  const fetchChecklists = (userId: string, userEmail: string | null) => {
-    if (!userId) return () => {};
+   const fetchChecklists = (userId: string, userEmail: string | null) => {
+    if (!userId) return;
 
-    try {
-        // 1. Seller Query
-        const sellerQuery = query(collection(db, "checklists"), where("uid", "==", userId));
+    // 1. Query for projects where I am the SELLER (Creator)
+    const sellerQuery = query(collection(db, "checklists"), where("uid", "==", userId));
+    
+    // 2. Query for projects where I am the BUYER
+    //    We check both 'buyerEmail' (for initial invites) and 'buyerUid' (for claimed projects)
+    //    buyerQueryEmail is for when the seller *just* invited by email, before the buyer has accepted (buyerUid not set yet).
+    //    buyerQueryUid is for when the buyer has *accepted* and their UID is on the document.
+    const buyerQueryEmail = userEmail ? query(collection(db, "checklists"), where("buyerEmail", "==", userEmail)) : null;
+    const buyerQueryUid = query(collection(db, "checklists"), where("buyerUid", "==", userId));
+
+    // Shared function to process ANY snapshot (Seller or Buyer)
+    const processSnapshot = (snapshot: any) => {
+        const newItems = snapshot.docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as Checklist));
         
-        // 2. Buyer Queries (RESTORED EMAIL QUERY FOR INVITES)
-        const buyerQueryEmail = userEmail ? query(collection(db, "checklists"), where("buyerEmail", "==", userEmail)) : null;
-        const buyerQueryUid = query(collection(db, "checklists"), where("buyerUid", "==", userId));
-
-        const processSnapshot = (snapshot: any) => {
-            const newItems = snapshot.docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as Checklist));
-            
-            console.log(`🔥 FIRESTORE FETCH for ${userId}: ${newItems.length} items found.`);
-            
-            setSavedChecklists(prev => {
-                const combinedMap = new Map<string, Checklist>(); 
-                prev.forEach(item => combinedMap.set(item.id, item));
-                newItems.forEach((item: any) => combinedMap.set(item.id, item));
-                return Array.from(combinedMap.values()).sort((a:any, b:any) => 
-                    (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)
-                );
+        // --- WAS: (Your existing console.log) ---
+        // console.log("🔥 FIRESTORE FETCH:", newItems.length, "items found for user", userId);
+        // if (newItems.length > 0) console.log("First Item UID:", newItems[0].uid);
+        
+        // --- IS: (Improved console.log for clarity) ---
+        console.log(`🔥 FIRESTORE FETCH for ${userId}: ${newItems.length} items found. Source: ${snapshot.metadata.fromCache ? 'cache' : 'server'}.`);
+        if (newItems.length > 0) {
+            console.log("First Item Data:", {
+                id: newItems[0].id,
+                title: newItems[0].title,
+                uid: newItems[0].uid,
+                buyerUid: newItems[0].buyerUid,
+                agreementStatus: newItems[0].agreementStatus
             });
+        }
+        // ------------------------------------------
+        
+        // Merge into state without duplicates
+        setSavedChecklists(prev => {
+            const combinedMap = new Map<string, Checklist>(); // Use Map for efficient merging
+            
+            // Add existing items to map
+            prev.forEach(item => combinedMap.set(item.id, item));
+            
+            // Add/Overwrite with new items from the current snapshot
+            newItems.forEach((item: any) => combinedMap.set(item.id, item));
+            
+            // Convert back to array and sort by creation date (newest first)
+            return Array.from(combinedMap.values()).sort((a:any, b:any) => 
+                (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)
+            );
+        });
 
-            // --- RESTORED NOTIFICATIONS ---
-            snapshot.docChanges().forEach((change: any) => {
-                const data = { id: change.doc.id, ...change.doc.data() } as Checklist;
-                
-                // Auto-update active chat
-                if (activeChatChecklist && activeChatChecklist.id === data.id) {
-                    setActiveChatChecklist(data);
-                }
+        // --- NOTIFICATION LOGIC (Preserved from Existing) ---
+        snapshot.docChanges().forEach((change: any) => {
+            const data = { id: change.doc.id, ...change.doc.data() } as Checklist;
+            
+            // Auto-update active chat if open
+            if (activeChatChecklist && activeChatChecklist.id === data.id) {
+                setActiveChatChecklist(data);
+            }
 
-                // Meeting Notification
-                if (change.type === "modified" && data.meetingStartedAt) {
-                    const meetingTimestamp = data.meetingStartedAt?.toDate();
-                    if (meetingTimestamp && (new Date().getTime() - meetingTimestamp.getTime()) < 60000) {
-                        if (data.lastMeetingInitiator !== userId) {
-                            setMeetingNotification({
-                                title: data.title,
-                                checklist: data,
-                                platform: data.activeMeetingPlatform || 'meet'
-                            });
-                        }
+            // Meeting Notification Trigger
+            if (change.type === "modified" && data.meetingStartedAt) {
+                const meetingTimestamp = data.meetingStartedAt?.toDate();
+                // Check if meeting started in last 60 seconds
+                if (meetingTimestamp && (new Date().getTime() - meetingTimestamp.getTime()) < 60000) {
+                    // Only notify if *I* didn't start it
+                    if (data.lastMeetingInitiator !== userId) {
+                        setMeetingNotification({
+                            title: data.title,
+                            checklist: data,
+                            platform: data.activeMeetingPlatform || 'meet'
+                        });
                     }
                 }
-            });
-        };
+            }
+        });
+    };
 
-        // Activate Listeners
-        const unsubscribeSeller = onSnapshot(sellerQuery, processSnapshot);
-        const unsubscribeBuyerUid = onSnapshot(buyerQueryUid, processSnapshot);
-        
-        let unsubscribeBuyerEmail: (() => void) | undefined;
-        if (buyerQueryEmail) {
-            unsubscribeBuyerEmail = onSnapshot(buyerQueryEmail, processSnapshot);
-        }
-
-        return () => {
-            unsubscribeSeller();
-            unsubscribeBuyerUid();
-            if (unsubscribeBuyerEmail) unsubscribeBuyerEmail(); 
-        };
-    } catch (error) {
-        console.error("Fetch Error:", error);
-        return () => {};
+    // Activate Listeners
+    const unsubscribeSeller = onSnapshot(sellerQuery, processSnapshot);
+    const unsubscribeBuyerUid = onSnapshot(buyerQueryUid, processSnapshot);
+    
+    let unsubscribeBuyerEmail: (() => void) | undefined; // Initialize as undefined
+    if (buyerQueryEmail) {
+        unsubscribeBuyerEmail = onSnapshot(buyerQueryEmail, processSnapshot);
     }
-  };
 
-  // --- MAIN USE EFFECT ---
-  useEffect(() => {
+    // Cleanup all listeners on unmount
+    return () => {
+        unsubscribeSeller();
+        unsubscribeBuyerUid();
+        if (unsubscribeBuyerEmail) unsubscribeBuyerEmail(); // Only unsubscribe if it was set
+    };
+  };
+// --- INITIALIZATION (STABLE & COMPLETE) ---
+useEffect(() => {
+    // Get non-user-specific settings from localStorage on initial load
     const localKey = localStorage.getItem('openai_key');
     if (localKey) setApiKey(localKey);
 
+    // Using a ref to store the unsubscribe function from fetchChecklists
+    // Refs don't cause re-renders when updated
     const unsubscribeFromChecklistsRef = useRef<(() => void) | undefined>(undefined); 
     
     const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
         setUser(currentUser);
         
+        // --- WEEKLY SUMMARY TRIGGER LOGIC (Existing) ---
         const lastSummary = localStorage.getItem('lastSummaryDate');
         const oneWeekAgo = new Date();
         oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
         if (!lastSummary || new Date(lastSummary) < oneWeekAgo) {
-            // fetchWeeklySummary(currentUser.uid); 
+            // fetchWeeklySummary(currentUser.uid); // Placeholder if you have this function
         }
         
-        // CLEANUP & RE-SUBSCRIBE
+        // --- FETCH USER-SPECIFIC DATA ---
+        // Cleanup previous user's listeners if any
         if (unsubscribeFromChecklistsRef.current) unsubscribeFromChecklistsRef.current(); 
+        
+        // Call fetchChecklists and store its unsubscribe function
         unsubscribeFromChecklistsRef.current = fetchChecklists(currentUser.uid, currentUser.email);
         
-        fetchMyListings(currentUser.uid); 
-        fetchCommunityStandards();
+        fetchMyListings(currentUser.uid); // Fetch user's marketplace listings
+        fetchCommunityStandards(); // Fetch community standards
 
+        // --- READ/CREATE isVerified STATUS FROM FIRESTORE ---
         const userRef = doc(db, "users", currentUser.uid);
-        getDoc(userRef).then((snap) => {
-             if (snap.exists() && snap.data().isDomainVerified) setIsVerified(true);
-             else setDoc(userRef, { email: currentUser.email, isDomainVerified: false, createdAt: serverTimestamp() }, { merge: true });
-        });
-
+        const userSnap = await getDoc(userRef);
+        if (userSnap.exists() && userSnap.data().isDomainVerified) {
+          setIsVerified(true);
+        } else {
+          // If user profile doesn't exist, create it.
+          await setDoc(userRef, { 
+            email: currentUser.email, 
+            isDomainVerified: false,
+            createdAt: serverTimestamp()
+          }, { merge: true });
+          setIsVerified(false);
+        }
       } else {
+        // No user is logged in: clear user state and unsubscribe from data
         setUser(null);
-        if (unsubscribeFromChecklistsRef.current) unsubscribeFromChecklistsRef.current(); 
+        if (unsubscribeFromChecklistsRef.current) unsubscribeFromChecklistsRef.current(); // CRITICAL: Stop listening on logout
         router.push('/auth');
       }
       setLoading(false);
     });
 
+    // --- FINAL CLEANUP ON COMPONENT UNMOUNT ---
     return () => {
-        unsubscribeAuth(); 
-        if (unsubscribeFromChecklistsRef.current) unsubscribeFromChecklistsRef.current(); 
+        unsubscribeAuth(); // Unsubscribe from auth listener
+        if (unsubscribeFromChecklistsRef.current) unsubscribeFromChecklistsRef.current(); // Final cleanup for data listeners
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [router]);
+  // CRITICAL: Add all useCallback functions as dependencies
+  }, [router, fetchChecklists, fetchMyListings, fetchCommunityStandards]);
 
 
-  // --- CHAT SCROLL EFFECT ---
-  useEffect(() => {
+// --- Your other useEffect for chat scrolling remains the same ---
+useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [activeChatChecklist?.messages]);  
-
-  // --- ACTIONS & HELPER FUNCTIONS ---
+}, [activeChatChecklist?.messages]);  // --- ACTIONS ---
   const saveApiKey = () => {
     localStorage.setItem('openai_key', apiKey);
     setShowSettings(false);
@@ -612,12 +641,14 @@ const publishToListing = async (groupId: string) => {
   };
 
   const addManualItem = (category: string) => {
+    // If called from the button directly, prompt. If from applySegmentTemplate, strict add.
     const requirement = prompt(`Enter detailed requirement for ${category}:`);
     if (requirement) setItems(prev => [...prev, { category, requirement, status: 'pending', gapAnalysis: 'Manual Entry' }]);
   };
 
+  // Fixed: Moved outside handleSave so it can be called by UI
   const applySegmentTemplate = (model: BusinessModel) => {
-    setItems([]); 
+    setItems([]); // Clear current items
     const newItems: ChecklistItem[] = [];
     
     if (model === 'B2B') {
@@ -635,6 +666,7 @@ const publishToListing = async (groupId: string) => {
     }
     setItems(newItems);
   };
+
   // --- INTELLIGENT PARAMETER SELECTION LOGIC ---
   const getActiveParameters = () => {
     if (selectedType === 'software') return STANDARD_PARAMS.software;
@@ -711,16 +743,7 @@ const publishToListing = async (groupId: string) => {
   };
 
 // --- UPDATED DELETE FUNCTION ---
-// --- UPDATED DELETE FUNCTION ---
   const handleDelete = async (id: string) => {
-    // Add a guard clause to ensure the user is authenticated before proceeding.
-    // This prevents a potential crash if `user` is null.
-    if (!user) {
-      console.error("Delete operation failed: User is not authenticated.");
-      alert("You must be logged in to perform this action.");
-      return;
-    }
-
     if (!confirm("Are you sure you want to delete this project permanently? This will also remove it from the Marketplace.")) return;
     
     try {
@@ -730,18 +753,17 @@ const publishToListing = async (groupId: string) => {
       // 2. Find and Delete the associated Marketplace Listing (The Ad)
       const q = query(collection(db, "market_listings"), where("checklistId", "==", id));
       const querySnapshot = await getDocs(q);
-      
-      // Use Promise.all to ensure all deletions complete before the alert
-      const deletePromises = querySnapshot.docs.map(docSnapshot => deleteDoc(docSnapshot.ref));
-      await Promise.all(deletePromises);
+      querySnapshot.forEach(async (doc) => {
+          await deleteDoc(doc.ref);
+      });
 
-      // 3. Refresh UI (This call is now safe because of the check above)
+      // 3. Refresh UI
       fetchMyListings(user.uid); 
       alert("Project and Listing deleted.");
       
     } catch (e) {
-      console.error("Error during project deletion:", e);
-      alert("Error deleting project. Please check the console for details.");
+      console.error(e);
+      alert("Error deleting project.");
     }
   };
 
@@ -1010,9 +1032,8 @@ if (loading) return (
   );
     if (!user) return null;
     
- // --- REPLACEMENT BLOCK FOR FILTER LOGIC ---
-  const filteredChecklists = savedChecklists.filter(list => {
-    // 1. Search Query
+      const filteredChecklists = savedChecklists.filter(list => {
+    // 1. Search Query Filter
     const query = searchQuery.toLowerCase();
     const matchesSearch = 
       list.title.toLowerCase().includes(query) ||
@@ -1021,20 +1042,15 @@ if (loading) return (
       (list.agreementStatus || '').toLowerCase().includes(query) ||
       (list.score + '%').includes(query);
 
-    // 2. Role Filter
-    const isSeller = list.uid === user.uid;
-    // Check match by UID (Accepted) OR Email (Invited)
-    const isBuyer = (list.buyerUid && list.buyerUid === user.uid) || 
-                    (list.buyerEmail && list.buyerEmail === user.email);
-
+    // 2. Role Filter based on viewMode (Tabs)
     let matchesRole = false;
-    
+    const isSeller = list.uid === user.uid;
+    const isBuyer = (list.buyerUid && list.buyerUid === user.uid) || (list.buyerEmail && list.buyerEmail === user.email);
+
     if (viewMode === 'all') {
-        matchesRole = isSeller || !!isBuyer; // Show All
     } else if (viewMode === 'selling') {
-        matchesRole = isSeller; // Show Selling
+        matchesRole = isSeller;
     } else if (viewMode === 'buying') {
-        matchesRole = !!isBuyer; // Show Buying (FIXED)
     }
 
     return matchesSearch && matchesRole;
@@ -1046,7 +1062,7 @@ if (loading) return (
     <> 
     {/* Use the new SimpleSearch instead of CommandPalette */}
     <SimpleSearch 
-    isOpen={!!openCommandPalette} 
+        isOpen={openCommandPalette} 
         onClose={() => setOpenCommandPalette(false)} // Pass the close handler
         savedChecklists={savedChecklists}
         user={user}
