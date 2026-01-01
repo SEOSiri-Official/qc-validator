@@ -27,6 +27,7 @@ import DisputeModal from '@/components/DisputeModal';
 import SimpleSearch from '@/components/SimpleSearch';
 import { useEffect, useState, useRef, ChangeEvent, useCallback } from 'react';
 
+
 // --- TYPES & INTERFACES ---
 type QCType = 'physical' | 'service' | 'software';
 type Standard = 'General' | 'ISO 9001' | 'HACCP' | 'ASTM' | 'EU-GMP' | 'API (Oil)' | 'Kimberley (Gems)' | 'FDA (21 CFR)';
@@ -710,7 +711,16 @@ const publishToListing = async (groupId: string) => {
   };
 
 // --- UPDATED DELETE FUNCTION ---
+// --- UPDATED DELETE FUNCTION ---
   const handleDelete = async (id: string) => {
+    // Add a guard clause to ensure the user is authenticated before proceeding.
+    // This prevents a potential crash if `user` is null.
+    if (!user) {
+      console.error("Delete operation failed: User is not authenticated.");
+      alert("You must be logged in to perform this action.");
+      return;
+    }
+
     if (!confirm("Are you sure you want to delete this project permanently? This will also remove it from the Marketplace.")) return;
     
     try {
@@ -720,17 +730,18 @@ const publishToListing = async (groupId: string) => {
       // 2. Find and Delete the associated Marketplace Listing (The Ad)
       const q = query(collection(db, "market_listings"), where("checklistId", "==", id));
       const querySnapshot = await getDocs(q);
-      querySnapshot.forEach(async (doc) => {
-          await deleteDoc(doc.ref);
-      });
+      
+      // Use Promise.all to ensure all deletions complete before the alert
+      const deletePromises = querySnapshot.docs.map(docSnapshot => deleteDoc(docSnapshot.ref));
+      await Promise.all(deletePromises);
 
-      // 3. Refresh UI
+      // 3. Refresh UI (This call is now safe because of the check above)
       fetchMyListings(user.uid); 
       alert("Project and Listing deleted.");
       
     } catch (e) {
-      console.error(e);
-      alert("Error deleting project.");
+      console.error("Error during project deletion:", e);
+      alert("Error deleting project. Please check the console for details.");
     }
   };
 
