@@ -399,22 +399,6 @@ const publishToListing = async (groupId: string) => {
 };
 
   // --- INITIALIZATION (PRODUCTION READY & MERGED) ---
-  const fetchCommunityStandards = async () => {
-    const standardsQuery = query(collection(db, "nationalStandards"));
-    const querySnapshot = await getDocs(standardsQuery);
-    const standardsList: any[] = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-    }));
-    standardsList.sort((a, b) => (b.endorsementCount || 0) - (a.endorsementCount || 0));
-    setCommunityStandards(standardsList);
-  };
-
-  const fetchMyListings = async (userId: string) => {
-    const q = query(collection(db, 'market_listings'), where('sellerId', '==', userId));
-    const querySnapshot = await getDocs(q);
-    setMyListings(querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-};
 
 const fetchWeeklySummary = async (userId: string) => {
     const oneWeekAgo = new Date();
@@ -460,26 +444,20 @@ const fetchWeeklySummary = async (userId: string) => {
     } catch(e) { console.error(e); }
   };
 
-const fetchChecklists = (userId: string, userEmail: string | null) => {
-    if (!userId) return () => {}; // Return an empty cleanup function
+const fetchChecklists = useCallback((userId: string, userEmail: string | null) => {
+    if (!userId) return () => {};
 
-    // 1. DEFINE ALL QUERIES
     const sellerQuery = query(collection(db, "checklists"), where("uid", "==", userId));
-    const buyerQueryUid = query(collection(db, "checklists"), where("buyerUid", "==", userId));
-    const buyerQueryEmail = userEmail ? query(collection(db, "checklists"), where("buyerEmail", "==", userEmail)) : null;
+    const buyerQuery = query(collection(db, "checklists"), where("buyerUid", "==", userId));
+    const inviteQuery = userEmail ? query(collection(db, "checklists"), where("buyerEmail", "==", userEmail), where("agreementStatus", "==", "pending_buyer")) : null;
 
-    // 2. DEFINE THE SHARED SNAPSHOT HANDLER
     const processSnapshot = (snapshot: any) => {
         const newItems = snapshot.docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as Checklist));
         
-        // Merge into state without duplicates
         setSavedChecklists(prev => {
             const combinedMap = new Map<string, Checklist>();
-            prev.forEach(item => combinedMap.set(item.id, item));
-            newItems.forEach((item: any) => combinedMap.set(item.id, item));
-            return Array.from(combinedMap.values()).sort((a:any, b:any) => 
-                (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)
-            );
+            [...prev, ...newItems].forEach(item => combinedMap.set(item.id, item));
+            return Array.from(combinedMap.values()).sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
         });
 
         // Notification Logic
@@ -504,108 +482,86 @@ const fetchChecklists = (userId: string, userEmail: string | null) => {
     };
 
     // 3. ACTIVATE LISTENERS
-    const unsubscribeSeller = onSnapshot(sellerQuery, processSnapshot);
-    const unsubscribeBuyerUid = onSnapshot(buyerQueryUid, processSnapshot);
-    
-    let unsubscribeBuyerEmail: (() => void) | undefined;
-    if (buyerQueryEmail) {
-        unsubscribeBuyerEmail = onSnapshot(buyerQueryEmail, processSnapshot);
-    }
+     const unsubSeller = onSnapshot(sellerQuery, processSnapshot);
+    const unsubBuyer = onSnapshot(buyerQuery, processSnapshot);
+    const unsubInvite = inviteQuery ? onSnapshot(inviteQuery, processSnapshot) : () => {};
 
-    // 4. RETURN THE COMBINED CLEANUP FUNCTION
     return () => {
-        unsubscribeSeller();
-        unsubscribeBuyerUid();
-        if (unsubscribeBuyerEmail) unsubscribeBuyerEmail();
+        unsubSeller();
+        unsubBuyer();
+        unsubInvite();
     };
+  }, [setSavedChecklists, setActiveChatChecklist, setMeetingNotification, activeChatChecklist]); // Add state setters as dependencies
 
-
-    // Return a function to clean up all listeners
-    return () => {
-        unsubscribeSeller();
-        unsubscribeBuyerUid();
-        if (unsubscribeBuyerEmail) unsubscribeBuyerEmail();
-    };
-};
-const fetchChecklistsMemoized = useCallback((userId: string, userEmail: string | null) => {
-    return fetchChecklists(userId, userEmail);
-}, []);
-
-const fetchMyListingsMemoized = useCallback(async (userId: string) => {
+  const fetchMyListings = useCallback(async (userId: string) => {
+    if (!userId) return;
     const q = query(collection(db, 'market_listings'), where('sellerId', '==', userId));
-    const querySnapshot = await getDocs(q);
-    setMyListings(querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-}, []);
+    const snap = await getDocs(q);
+    setMyListings(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+  }, [setMyListings]);
 
-const fetchCommunityStandardsMemoized = useCallback(async () => {
-    const standardsQuery = query(collection(db, "nationalStandards"));
-    const querySnapshot = await getDocs(standardsQuery);
-    const standardsList: any[] = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-    }));
-    standardsList.sort((a, b) => (b.endorsementCount || 0) - (a.endorsementCount || 0));
-    setCommunityStandards(standardsList);
-}, []);
-// --- INITIALIZATION (STABLE & COMPLETE) ---
-// --- CORRECTED useEffect ---
-useEffect(() => {
-    // Get non-user-specific settings from localStorage on initial load
+  const fetchCommunityStandards = useCallback(async () => {
+    const q = query(collection(db, "nationalStandards"));
+    const snap = await getDocs(q);
+    setCommunityStandards(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+  }, [setCommunityStandards]);
+
+  // --- INITIALIZATION & AUTH EFFECT ---
+  useEffect(() => {
     const localKey = localStorage.getItem('openai_key');
     if (localKey) setApiKey(localKey);
     
-    const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
+    const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
       if (currentUser) {
         setUser(currentUser);
-        
-        // --- WEEKLY SUMMARY TRIGGER LOGIC (Existing) ---
-        const lastSummary = localStorage.getItem('lastSummaryDate');
-        const oneWeekAgo = new Date();
-        oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-        if (!lastSummary || new Date(lastSummary) < oneWeekAgo) {
-            // fetchWeeklySummary(currentUser.uid); // Placeholder if you have this function
-        }
-        
-        // --- FETCH USER-SPECIFIC DATA ---
-        // Cleanup previous user's listeners if any
-        if (unsubscribeFromChecklistsRef.current) unsubscribeFromChecklistsRef.current(); 
-        
-        // Call fetchChecklists and store its unsubscribe function
-        unsubscribeFromChecklistsRef.current = fetchChecklistsMemoized(currentUser.uid, currentUser.email);
-        
-        fetchMyListingsMemoized(currentUser.uid); // Fetch user's marketplace listings
-        fetchCommunityStandardsMemoized(); // Fetch community standards
-
-        // --- READ/CREATE isVerified STATUS FROM FIRESTORE ---
-        const userRef = doc(db, "users", currentUser.uid);
-        const userSnap = await getDoc(userRef);
-        if (userSnap.exists() && userSnap.data().isDomainVerified) {
-          setIsVerified(true);
-        } else {
-          // If user profile doesn't exist, create it.
-          await setDoc(userRef, { 
-            email: currentUser.email, 
-            isDomainVerified: false,
-            createdAt: serverTimestamp()
-          }, { merge: true });
-          setIsVerified(false);
-        }
       } else {
-        // No user is logged in: clear user state and unsubscribe from data
         setUser(null);
-        if (unsubscribeFromChecklistsRef.current) unsubscribeFromChecklistsRef.current(); // CRITICAL: Stop listening on logout
+        if (unsubscribeFromChecklistsRef.current) unsubscribeFromChecklistsRef.current();
         router.push('/auth');
       }
       setLoading(false);
     });
 
-    // --- FINAL CLEANUP ON COMPONENT UNMOUNT ---
+    return () => unsubscribeAuth();
+  }, [router]);
+
+  // --- DATA FETCHING EFFECT (Reacts to user changes) ---
+  useEffect(() => {
+    if (user) {
+        // Trigger all data fetches for the logged-in user
+        if (unsubscribeFromChecklistsRef.current) unsubscribeFromChecklistsRef.current();
+        unsubscribeFromChecklistsRef.current = fetchChecklists(user.uid, user.email);
+        
+        fetchMyListings(user.uid);
+        fetchCommunityStandards();
+
+        // Check for weekly summary
+        const lastSummary = localStorage.getItem('lastSummaryDate');
+        const oneWeekAgo = new Date();
+        oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+        if (!lastSummary || new Date(lastSummary) < oneWeekAgo) {
+            fetchWeeklySummary(user.uid);
+        }
+
+        // Verify user domain status
+        const checkVerification = async () => {
+            const userRef = doc(db, "users", user.uid);
+            const userSnap = await getDoc(userRef);
+            if (userSnap.exists() && userSnap.data().isDomainVerified) {
+              setIsVerified(true);
+            } else {
+              await setDoc(userRef, { email: user.email, isDomainVerified: false }, { merge: true });
+              setIsVerified(false);
+            }
+        };
+        checkVerification();
+    }
+    
+    // Final cleanup on component unmount
     return () => {
-        unsubscribeAuth(); // Unsubscribe from auth listener
-        if (unsubscribeFromChecklistsRef.current) unsubscribeFromChecklistsRef.current(); // Final cleanup for data listeners
+        if (unsubscribeFromChecklistsRef.current) unsubscribeFromChecklistsRef.current();
     };
-  // CRITICAL: Now using memoized versions to prevent infinite loops
-  }, [router, fetchChecklistsMemoized, fetchMyListingsMemoized, fetchCommunityStandardsMemoized]);
+  }, [user, fetchChecklists, fetchMyListings, fetchCommunityStandards, fetchWeeklySummary]);
 
 
 // --- Your other useEffect for chat scrolling remains the same ---
