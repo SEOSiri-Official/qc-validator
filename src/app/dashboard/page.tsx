@@ -564,20 +564,34 @@ const buyerQuery = query(
         fetchWeeklySummary(user.uid);
     }
 
-    // Verify user domain status
     const checkVerification = async () => {
-        const userRef = doc(db, "users", user.uid);
-        const userSnap = await getDoc(userRef);
-        if (userSnap.exists() && userSnap.data().isDomainVerified) {
-          setIsVerified(true);
-        } else {
-          // This check is important, you may not always want to create a doc here
-          // For now, we assume it's okay.
-          await setDoc(userRef, { email: user.email, isDomainVerified: false }, { merge: true });
-          setIsVerified(false);
-        }
-    };
-    checkVerification();
+            const userRef = doc(db, "users", user.uid);
+            const userSnap = await getDoc(userRef);
+
+            if (userSnap.exists()) {
+                const userData = userSnap.data();
+
+                // 1. Check if they are ALREADY verified
+                if (userData.isDomainVerified) {
+                    setIsVerified(true);
+                    setVerificationCode(null); // No need to show the code if verified
+                    return;
+                }
+                
+                // 2. Check if they have a PENDING code
+                if (userData.verificationCode) {
+                    setVerificationCode(userData.verificationCode);
+                }
+
+            } else {
+              // 3. If no user doc exists, create a basic one
+              await setDoc(userRef, { email: user.email, isDomainVerified: false }, { merge: true });
+            }
+            
+            // 4. Default to not verified if none of the above are true
+            setIsVerified(false);
+        };
+        checkVerification();
 
     // The return function here acts as the cleanup for THIS effect.
     // It will be called when the 'user' changes (i.e., on logout) or when the component unmounts.
