@@ -1020,7 +1020,7 @@ if (loading) return (
   );
     if (!user) return null;
     
-      const filteredChecklists = savedChecklists.filter(list => {
+   const filteredChecklists = savedChecklists.filter(list => {
     // 1. Search Query Filter
     const query = searchQuery.toLowerCase();
     const matchesSearch = 
@@ -1031,18 +1031,19 @@ if (loading) return (
       (list.score + '%').includes(query);
 
     // 2. Role Filter based on viewMode (Tabs)
-    let matchesRole = false;
     const isSeller = list.uid === user.uid;
-    const isBuyer = (list.buyerUid && list.buyerUid === user.uid) || (list.buyerEmail && list.buyerEmail === user.email);
+    const isBuyer = Boolean((list.buyerUid && list.buyerUid === user.uid) || (list.buyerEmail && list.buyerEmail === user.email));
 
-    if (viewMode === 'all') {
-    } else if (viewMode === 'selling') {
+    let matchesRole: boolean = true; // Explicitly type as boolean
+    
+    if (viewMode === 'selling') {
         matchesRole = isSeller;
     } else if (viewMode === 'buying') {
+        matchesRole = isBuyer;
     }
 
     return matchesSearch && matchesRole;
-  });
+});
 
   // --- RENDER ---
   console.log("👀 RENDER: Filtered Checklists count:", filteredChecklists.length);
