@@ -511,76 +511,83 @@ const buyerQuery = query(
   }, [setCommunityStandards]);
 
   // --- INITIALIZATION & AUTH EFFECT ---
- // --- FINAL, COMBINED INITIALIZATION EFFECT ---
+  // --- EFFECT 1: AUTHENTICATION LISTENER ---
   useEffect(() => {
     // Get non-user-specific settings once on initial load
     const localKey = localStorage.getItem('openai_key');
     if (localKey) setApiKey(localKey);
 
-    // This ref will hold our real-time listener's cleanup function
-    const unsubscribeFromChecklistsRef = useRef<(() => void) | undefined>(undefined);
-
-    const authUnsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      // --- First, always clean up any listeners from a previous user ---
-      if (unsubscribeFromChecklistsRef.current) {
-        unsubscribeFromChecklistsRef.current();
-      }
-
+    const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
       if (currentUser) {
         setUser(currentUser);
-        setLoading(true); // Set loading while we fetch new data
+      } else {
+        setUser(null);
+        router.push('/auth');
+      }
+      setLoading(false);
+    });
 
-        // --- Now, fetch all data for the NEWLY authenticated user ---
-        
-        // Start the real-time listener and store its cleanup function
-        unsubscribeFromChecklistsRef.current = fetchChecklists(currentUser.uid, currentUser.email);
-        
-        // Fetch one-time data
-        fetchMyListings(currentUser.uid);
-        fetchCommunityStandards();
+    // Cleanup the auth listener when the component unmounts
+    return () => unsubscribeAuth();
+  }, [router]);
 
-        // Check for weekly summary
-        const lastSummary = localStorage.getItem('lastSummaryDate');
-        const oneWeekAgo = new Date();
-        oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-        if (!lastSummary || new Date(lastSummary) < oneWeekAgo) {
-            fetchWeeklySummary(currentUser.uid);
-        }
+  // --- EFFECT 2: DATA FETCHER (Reacts to user changes) ---
+  useEffect(() => {
+    // If there is no user, clean up any old listeners from a previous session and stop.
+    if (!user) {
+      if (unsubscribeFromChecklistsRef.current) {
+        unsubscribeFromChecklistsRef.current();
+        unsubscribeFromChecklistsRef.current = undefined;
+      }
+      return;
+    }
 
-        // Verify user domain status
-        const userRef = doc(db, "users", currentUser.uid);
+    // --- A user IS logged in, so fetch their data ---
+
+    // Clean up listeners from any PREVIOUS user before starting new ones
+    if (unsubscribeFromChecklistsRef.current) {
+      unsubscribeFromChecklistsRef.current();
+    }
+    
+    // Call the memoized fetch function and store its cleanup function in the ref
+    unsubscribeFromChecklistsRef.current = fetchChecklists(user.uid, user.email);
+    
+    // Fetch non-real-time data
+    fetchMyListings(user.uid);
+    fetchCommunityStandards();
+
+    // Check for weekly summary
+    const lastSummary = localStorage.getItem('lastSummaryDate');
+    const oneWeekAgo = new Date();
+    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+    if (!lastSummary || new Date(lastSummary) < oneWeekAgo) {
+        fetchWeeklySummary(user.uid);
+    }
+
+    // Verify user domain status
+    const checkVerification = async () => {
+        const userRef = doc(db, "users", user.uid);
         const userSnap = await getDoc(userRef);
         if (userSnap.exists() && userSnap.data().isDomainVerified) {
           setIsVerified(true);
         } else {
-          // Create the user document if it doesn't exist yet
-          await setDoc(userRef, { 
-              email: currentUser.email, 
-              isDomainVerified: false,
-              createdAt: serverTimestamp()
-          }, { merge: true });
+          // This check is important, you may not always want to create a doc here
+          // For now, we assume it's okay.
+          await setDoc(userRef, { email: user.email, isDomainVerified: false }, { merge: true });
           setIsVerified(false);
         }
+    };
+    checkVerification();
 
-        setLoading(false); // Done loading for this user
-
-      } else {
-        // No user is logged in
-        setUser(null);
-        setSavedChecklists([]); // Clear data
-        router.push('/auth');
-        setLoading(false);
-      }
-    });
-
-    // Final cleanup when the Dashboard component itself unmounts
+    // The return function here acts as the cleanup for THIS effect.
+    // It will be called when the 'user' changes (i.e., on logout) or when the component unmounts.
     return () => {
-      authUnsubscribe();
       if (unsubscribeFromChecklistsRef.current) {
         unsubscribeFromChecklistsRef.current();
+        unsubscribeFromChecklistsRef.current = undefined;
       }
     };
-  }, [router, fetchChecklists, fetchMyListings, fetchCommunityStandards, fetchWeeklySummary]); // Dependencies
+  }, [user, fetchChecklists, fetchMyListings, fetchCommunityStandards, fetchWeeklySummary]); // Re-run when user changes
 
 
 // --- Your other useEffect for chat scrolling remains the same ---
