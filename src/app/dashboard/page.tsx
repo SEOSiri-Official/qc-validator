@@ -460,71 +460,37 @@ const fetchWeeklySummary = async (userId: string) => {
     } catch(e) { console.error(e); }
   };
 
-   const fetchChecklists = (userId: string, userEmail: string | null) => {
-    if (!userId) return;
+const fetchChecklists = (userId: string, userEmail: string | null) => {
+    if (!userId) return () => {}; // Return an empty cleanup function
 
-    // 1. Query for projects where I am the SELLER (Creator)
+    // 1. DEFINE ALL QUERIES
     const sellerQuery = query(collection(db, "checklists"), where("uid", "==", userId));
-    
-    // 2. Query for projects where I am the BUYER
-    //    We check both 'buyerEmail' (for initial invites) and 'buyerUid' (for claimed projects)
-    //    buyerQueryEmail is for when the seller *just* invited by email, before the buyer has accepted (buyerUid not set yet).
-    //    buyerQueryUid is for when the buyer has *accepted* and their UID is on the document.
-    const buyerQueryEmail = userEmail ? query(collection(db, "checklists"), where("buyerEmail", "==", userEmail)) : null;
     const buyerQueryUid = query(collection(db, "checklists"), where("buyerUid", "==", userId));
+    const buyerQueryEmail = userEmail ? query(collection(db, "checklists"), where("buyerEmail", "==", userEmail)) : null;
 
-    // Shared function to process ANY snapshot (Seller or Buyer)
+    // 2. DEFINE THE SHARED SNAPSHOT HANDLER
     const processSnapshot = (snapshot: any) => {
         const newItems = snapshot.docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as Checklist));
         
-        // --- WAS: (Your existing console.log) ---
-        // console.log("🔥 FIRESTORE FETCH:", newItems.length, "items found for user", userId);
-        // if (newItems.length > 0) console.log("First Item UID:", newItems[0].uid);
-        
-        // --- IS: (Improved console.log for clarity) ---
-        console.log(`🔥 FIRESTORE FETCH for ${userId}: ${newItems.length} items found. Source: ${snapshot.metadata.fromCache ? 'cache' : 'server'}.`);
-        if (newItems.length > 0) {
-            console.log("First Item Data:", {
-                id: newItems[0].id,
-                title: newItems[0].title,
-                uid: newItems[0].uid,
-                buyerUid: newItems[0].buyerUid,
-                agreementStatus: newItems[0].agreementStatus
-            });
-        }
-        // ------------------------------------------
-        
         // Merge into state without duplicates
         setSavedChecklists(prev => {
-            const combinedMap = new Map<string, Checklist>(); // Use Map for efficient merging
-            
-            // Add existing items to map
+            const combinedMap = new Map<string, Checklist>();
             prev.forEach(item => combinedMap.set(item.id, item));
-            
-            // Add/Overwrite with new items from the current snapshot
             newItems.forEach((item: any) => combinedMap.set(item.id, item));
-            
-            // Convert back to array and sort by creation date (newest first)
             return Array.from(combinedMap.values()).sort((a:any, b:any) => 
                 (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)
             );
         });
 
-        // --- NOTIFICATION LOGIC (Preserved from Existing) ---
+        // Notification Logic
         snapshot.docChanges().forEach((change: any) => {
             const data = { id: change.doc.id, ...change.doc.data() } as Checklist;
-            
-            // Auto-update active chat if open
             if (activeChatChecklist && activeChatChecklist.id === data.id) {
                 setActiveChatChecklist(data);
             }
-
-            // Meeting Notification Trigger
             if (change.type === "modified" && data.meetingStartedAt) {
                 const meetingTimestamp = data.meetingStartedAt?.toDate();
-                // Check if meeting started in last 60 seconds
                 if (meetingTimestamp && (new Date().getTime() - meetingTimestamp.getTime()) < 60000) {
-                    // Only notify if *I* didn't start it
                     if (data.lastMeetingInitiator !== userId) {
                         setMeetingNotification({
                             title: data.title,
@@ -537,23 +503,30 @@ const fetchWeeklySummary = async (userId: string) => {
         });
     };
 
-    // Activate Listeners
+    // 3. ACTIVATE LISTENERS
     const unsubscribeSeller = onSnapshot(sellerQuery, processSnapshot);
     const unsubscribeBuyerUid = onSnapshot(buyerQueryUid, processSnapshot);
     
-    let unsubscribeBuyerEmail: (() => void) | undefined; // Initialize as undefined
+    let unsubscribeBuyerEmail: (() => void) | undefined;
     if (buyerQueryEmail) {
         unsubscribeBuyerEmail = onSnapshot(buyerQueryEmail, processSnapshot);
     }
 
-    // Cleanup all listeners on unmount
+    // 4. RETURN THE COMBINED CLEANUP FUNCTION
     return () => {
         unsubscribeSeller();
         unsubscribeBuyerUid();
-        if (unsubscribeBuyerEmail) unsubscribeBuyerEmail(); // Only unsubscribe if it was set
+        if (unsubscribeBuyerEmail) unsubscribeBuyerEmail();
     };
-  };
-  // --- ADD THESE BEFORE THE useEffect (around line 460) ---
+
+
+    // Return a function to clean up all listeners
+    return () => {
+        unsubscribeSeller();
+        unsubscribeBuyerUid();
+        if (unsubscribeBuyerEmail) unsubscribeBuyerEmail();
+    };
+};
 const fetchChecklistsMemoized = useCallback((userId: string, userEmail: string | null) => {
     return fetchChecklists(userId, userEmail);
 }, []);
