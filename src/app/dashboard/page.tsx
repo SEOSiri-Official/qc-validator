@@ -448,7 +448,11 @@ const fetchChecklists = useCallback((userId: string, userEmail: string | null) =
     if (!userId) return () => {};
 
     const sellerQuery = query(collection(db, "checklists"), where("uid", "==", userId));
-    const buyerQuery = query(collection(db, "checklists"), where("buyerUid", "==", userId));
+const buyerQuery = query(
+    collection(db, "checklists"), 
+    where("buyerUid", "==", userId),
+    where("agreementStatus", "in", ["ready_to_sign", "party_a_signed", "completed", "drafting"])
+);
     const inviteQuery = userEmail ? query(collection(db, "checklists"), where("buyerEmail", "==", userEmail), where("agreementStatus", "==", "pending_buyer")) : null;
 
     const processSnapshot = (snapshot: any) => {
