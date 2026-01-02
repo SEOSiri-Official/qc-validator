@@ -511,32 +511,32 @@ const buyerQuery = query(
   }, [setCommunityStandards]);
 
   // --- INITIALIZATION & AUTH EFFECT ---
+ // --- FINAL, COMBINED INITIALIZATION EFFECT ---
   useEffect(() => {
+    // Get non-user-specific settings once on initial load
     const localKey = localStorage.getItem('openai_key');
     if (localKey) setApiKey(localKey);
-    
-    const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
+
+    // This ref will hold our real-time listener's cleanup function
+    const unsubscribeFromChecklistsRef = useRef<(() => void) | undefined>(undefined);
+
+    const authUnsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      // --- First, always clean up any listeners from a previous user ---
+      if (unsubscribeFromChecklistsRef.current) {
+        unsubscribeFromChecklistsRef.current();
+      }
+
       if (currentUser) {
         setUser(currentUser);
-      } else {
-        setUser(null);
-        if (unsubscribeFromChecklistsRef.current) unsubscribeFromChecklistsRef.current();
-        router.push('/auth');
-      }
-      setLoading(false);
-    });
+        setLoading(true); // Set loading while we fetch new data
 
-    return () => unsubscribeAuth();
-  }, [router]);
-
-  // --- DATA FETCHING EFFECT (Reacts to user changes) ---
-  useEffect(() => {
-    if (user) {
-        // Trigger all data fetches for the logged-in user
-        if (unsubscribeFromChecklistsRef.current) unsubscribeFromChecklistsRef.current();
-        unsubscribeFromChecklistsRef.current = fetchChecklists(user.uid, user.email);
+        // --- Now, fetch all data for the NEWLY authenticated user ---
         
-        fetchMyListings(user.uid);
+        // Start the real-time listener and store its cleanup function
+        unsubscribeFromChecklistsRef.current = fetchChecklists(currentUser.uid, currentUser.email);
+        
+        // Fetch one-time data
+        fetchMyListings(currentUser.uid);
         fetchCommunityStandards();
 
         // Check for weekly summary
@@ -544,34 +544,51 @@ const buyerQuery = query(
         const oneWeekAgo = new Date();
         oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
         if (!lastSummary || new Date(lastSummary) < oneWeekAgo) {
-            fetchWeeklySummary(user.uid);
+            fetchWeeklySummary(currentUser.uid);
         }
 
         // Verify user domain status
-        const checkVerification = async () => {
-            const userRef = doc(db, "users", user.uid);
-            const userSnap = await getDoc(userRef);
-            if (userSnap.exists() && userSnap.data().isDomainVerified) {
-              setIsVerified(true);
-            } else {
-              await setDoc(userRef, { email: user.email, isDomainVerified: false }, { merge: true });
-              setIsVerified(false);
-            }
-        };
-        checkVerification();
-    }
-    
-    // Final cleanup on component unmount
+        const userRef = doc(db, "users", currentUser.uid);
+        const userSnap = await getDoc(userRef);
+        if (userSnap.exists() && userSnap.data().isDomainVerified) {
+          setIsVerified(true);
+        } else {
+          // Create the user document if it doesn't exist yet
+          await setDoc(userRef, { 
+              email: currentUser.email, 
+              isDomainVerified: false,
+              createdAt: serverTimestamp()
+          }, { merge: true });
+          setIsVerified(false);
+        }
+
+        setLoading(false); // Done loading for this user
+
+      } else {
+        // No user is logged in
+        setUser(null);
+        setSavedChecklists([]); // Clear data
+        router.push('/auth');
+        setLoading(false);
+      }
+    });
+
+    // Final cleanup when the Dashboard component itself unmounts
     return () => {
-        if (unsubscribeFromChecklistsRef.current) unsubscribeFromChecklistsRef.current();
+      authUnsubscribe();
+      if (unsubscribeFromChecklistsRef.current) {
+        unsubscribeFromChecklistsRef.current();
+      }
     };
-  }, [user, fetchChecklists, fetchMyListings, fetchCommunityStandards, fetchWeeklySummary]);
+  }, [router, fetchChecklists, fetchMyListings, fetchCommunityStandards, fetchWeeklySummary]); // Dependencies
 
 
 // --- Your other useEffect for chat scrolling remains the same ---
 useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-}, [activeChatChecklist?.messages]);  // --- ACTIONS ---
+}, [activeChatChecklist?.messages]); 
+
+// --- ACTIONS ---
   const saveApiKey = () => {
     localStorage.setItem('openai_key', apiKey);
     setShowSettings(false);
