@@ -1,11 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { doc, onSnapshot, updateDoc, arrayUnion } from 'firebase/firestore';
+import { doc, onSnapshot, updateDoc, arrayUnion,addDoc, collection, serverTimestamp} from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import Link from 'next/link';
 import { useParams } from 'next/navigation'; // <-- Import useParams
+import { uploadDisputeEvidence } from '@/lib/storage';
 
 export default function DisputePage() {
   const params = useParams(); // <-- Use the hook
@@ -31,11 +32,43 @@ export default function DisputePage() {
     return () => { unsubAuth(); unsubDispute(); };
   }, [disputeId]);
 
-  const sendDisputeMessage = async () => {
-    if (!chatInput.trim() || !user || !disputeId) return;
-    const message = { senderId: user.uid, senderEmail: user.email, text: chatInput, timestamp: Date.now() };
-    await updateDoc(doc(db, 'disputes', disputeId), { messages: arrayUnion(message) });
-    setChatInput('');
+ const sendDisputeMessage = async () => {
+    if (!chatInput.trim() || !user || !dispute) return;
+
+    const message = { 
+        senderId: user.uid, 
+        senderEmail: user.email, 
+        text: chatInput, 
+        timestamp: Date.now() 
+    };
+
+    const disputeRef = doc(db, 'disputes', dispute.id);
+
+    try {
+        // 1. Update the document with the new message
+        await updateDoc(disputeRef, { messages: arrayUnion(message) });
+
+        // --- 2. CREATE THE NOTIFICATION (Client-Side) ---
+        // Determine who the *other* person is
+        const recipientId = user.uid === dispute.sellerId ? dispute.buyerId : dispute.sellerId;
+        const senderName = user.email?.split('@')[0];
+
+        if (recipientId) {
+            await addDoc(collection(db, "notifications"), {
+                recipientId: recipientId,
+                title: `⚠️ New Message in Dispute`,
+                message: `${senderName}: "${chatInput.substring(0, 30)}..."`,
+                link: `/disputes/${dispute.id}`, // Link directly to the dispute
+                isRead: false,
+                createdAt: serverTimestamp()
+            });
+        }
+
+        setChatInput(''); // Clear the input on success
+    } catch (error) {
+        console.error("Error sending dispute message:", error);
+        alert("Failed to send message. Please check your connection or permissions.");
+    }
   };
   
   const submitSellerOffer = async () => {
@@ -43,6 +76,25 @@ export default function DisputePage() {
     await updateDoc(doc(db, 'disputes', disputeId), { 
         sellerOffer: offerInput,
         status: 'SELLER_RESPONDED'
+    });
+  };
+
+// --- ADD THIS FUNCTION ---
+  const handleEvidenceUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user || !disputeId) return;
+
+    const downloadURL = await uploadDisputeEvidence(file, disputeId, user.uid);
+    if (!downloadURL) {
+      alert("Failed to upload evidence.");
+      return;
+    }
+
+    // Add the URL to the dispute document in a new 'evidence' field
+    const newEvidence = { url: downloadURL, uploadedBy: user.uid };
+    const disputeRef = doc(db, 'disputes', disputeId);
+    await updateDoc(disputeRef, {
+      evidence: arrayUnion(newEvidence)
     });
   };
 
@@ -84,13 +136,14 @@ export default function DisputePage() {
             <h2 className="font-bold text-sm uppercase text-gray-500">Buyer's Initial Claim</h2>
             <p className="text-sm bg-gray-50 p-3 border rounded mt-1 text-gray-700">{dispute.reason}</p>
         </div>
-        {dispute.buyerEvidence && dispute.buyerEvidence.length > 0 && (
+      {/* --- UPDATED EVIDENCE DISPLAY --- */}
+        {dispute.evidence && dispute.evidence.length > 0 && (
             <div>
-                <h2 className="font-bold text-sm uppercase text-gray-500">Buyer's Evidence</h2>
+                <h2 className="font-bold text-sm uppercase text-gray-500">Shared Evidence</h2>
                 <div className="flex gap-2 mt-2 flex-wrap">
-                    {dispute.buyerEvidence.map((ev: any, idx: number) => (
+                    {dispute.evidence.map((ev: any, idx: number) => (
                         <a href={ev.url} target="_blank" key={idx} rel="noopener noreferrer">
-                            <img src={ev.url} className="w-16 h-16 object-cover rounded border hover:opacity-80 transition-opacity" alt="Evidence" />
+                            <img src={ev.url} className="w-16 h-16 object-cover rounded border" alt={`Evidence ${idx + 1}`} />
                         </a>
                     ))}
                 </div>
@@ -123,6 +176,25 @@ export default function DisputePage() {
               <button onClick={sendDisputeMessage} disabled={!chatInput.trim()} className="bg-indigo-600 text-white font-bold px-6 py-2 rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors">Send</button>
           </div>
       </div>
+
+{/* --- UPDATED CHAT INPUT --- */}
+          <div className="flex gap-2 items-center">
+              {/* Attachment Button */}
+              <label className="cursor-pointer p-3 border rounded-lg text-gray-500 hover:bg-gray-100">
+                  <span>📎</span>
+                  <input type="file" className="hidden" accept="image/*" onChange={handleEvidenceUpload} />
+              </label>
+
+              {/* Text Input */}
+              <input 
+                  value={chatInput} 
+                  onChange={e => setChatInput(e.target.value)} 
+                  onKeyDown={e => e.key === 'Enter' && sendDisputeMessage()}
+                  className="flex-1 p-3 border rounded-lg" 
+                  placeholder="Type a message..."
+              />
+              <button onClick={sendDisputeMessage} disabled={!chatInput.trim()} className="bg-indigo-600 text-white font-bold px-6 py-2 rounded-lg">Send</button>
+          </div>
 
       {/* --- RIGHT: ACTIONS & RESOLUTION --- */}
       <div className="lg:col-span-3 space-y-6">
