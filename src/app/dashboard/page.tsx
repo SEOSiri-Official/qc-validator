@@ -787,42 +787,65 @@ useEffect(() => {
     finally { setIsSaving(false); }
   };
 
- const handleDigitalSign = async (checklist: Checklist, signer: 'A' | 'B') => {
+const handleDigitalSign = async (checklist: Checklist, signer: 'A' | 'B') => {
     setSigningLoading(checklist.id);
-    let newStatus = checklist.agreementStatus;
-    let recipientId = '';
-    let message = '';
+    let newStatus: Checklist['agreementStatus'] = checklist.agreementStatus;
+    let notificationRecipientId: string | undefined;
+    let notificationMessage = '';
 
-    if (signer === 'A') {
+    // Security Check: Ensure the correct user is signing
+    if (signer === 'A' && user?.uid === checklist.uid) {
         newStatus = 'party_a_signed';
-recipientId = checklist.buyerUid || ''; // Fallback to empty string if undefined
-        message = 'Seller has signed. Your turn.';
-    }
-    if (signer === 'B') {
+        notificationRecipientId = checklist.buyerUid;
+        notificationMessage = `${checklist.sellerEmail} has signed. Your signature is now required.`;
+    } else if (signer === 'B' && user?.uid === checklist.buyerUid) {
         newStatus = 'completed';
-        recipientId = checklist.uid; // Notify Seller
-        message = 'Buyer has signed. Contract executed.';
+        notificationRecipientId = checklist.uid; // Notify the seller
+        notificationMessage = `${checklist.buyerEmail} has completed the agreement.`;
+    } else {
+        alert("Permission denied. You are not authorized to sign as this party.");
+        setSigningLoading(null);
+        return;
     }
+
+    const checklistRef = doc(db, "checklists", checklist.id);
 
     try {
-        // 1. Update Status
-        await updateDoc(doc(db, "checklists", checklist.id), { agreementStatus: newStatus as any });
-        
-        // 2. Send Notification (Client-Side)
-        if (recipientId) {
+        // 1. Update the document in Firestore
+        await updateDoc(checklistRef, { agreementStatus: newStatus });
+
+        // 2. Send the client-side notification
+        if (notificationRecipientId) {
             await addDoc(collection(db, "notifications"), {
-                recipientId: recipientId,
-                title: `Update on ${checklist.title}`,
-                message: message,
-                link: `/report/${checklist.id}`,
+                recipientId: notificationRecipientId,
+                title: `Agreement Update: ${checklist.title}`,
+                message: notificationMessage,
+                link: `/dashboard`,
                 isRead: false,
                 createdAt: serverTimestamp()
             });
         }
 
-        if (newStatus === 'completed') generatePDF(checklist);
-    } catch(e) { console.error(e); }
-    finally { setSigningLoading(null); }
+        // 3. Optimistically update the local state (This fixes the UI bug)
+        setSavedChecklists(prev => 
+            prev.map(item => 
+                item.id === checklist.id ? { ...item, agreementStatus: newStatus } : item
+            )
+        );
+
+        // 4. Trigger side-effects (like PDF generation)
+        if (newStatus === 'completed') {
+            generatePDF(checklist);
+        }
+        
+        alert(`✅ Success! The agreement status is now: ${newStatus?.replace(/_/g, ' ').toUpperCase()}`);
+
+    } catch (error) {
+        console.error("Error signing document:", error);
+        alert("Failed to sign. Please check your Firestore rules or connection and try again.");
+    } finally {
+        setSigningLoading(null);
+    }
   };
 
   // --- UPDATED: PDF GENERATION WITH PLACEHOLDERS ---
@@ -868,17 +891,30 @@ recipientId = checklist.buyerUid || ''; // Fallback to empty string if undefined
         doc.text("(Language accuracy in chat not guaranteed)", 120, 45);
     }
 
-    // --- AGREEMENT TEXT ---
+   // --- AGREEMENT TEXT ---
     doc.setFontSize(12);
     doc.setTextColor(0, 0, 0);
     doc.text("AGREEMENT TERMS:", 20, 90);
     doc.setFontSize(10);
     const text = `Party A (${checklist.sellerEmail}) certifies that the goods/services listed have passed all Quality Control parameters mandated by ${checklist.standard}. Party B (${checklist.buyerEmail}) acknowledges receipt and approves the order.`;
     doc.text(text, 20, 100, { maxWidth: 170 });
+    
+    // Initialize yPos for the next section
+    let yPos = 120; 
+
+    // --- NEW, SPECIFIC TERMS & CONDITIONS CLAUSE ---
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text("Supplementary Terms:", 20, yPos);
+    yPos += 10; // Move down for the content
+    doc.setFont('helvetica', 'normal');
+    const clauseText = "Both parties acknowledge that their respective internal business terms, organizational ethics, and norms are subject matters for their own governance and are supplementary to this specific agreement, provided they do not conflict with the terms herein.";
+    doc.text(clauseText, 20, yPos, { maxWidth: 170 });
+    yPos += 30; // Add space after the clause
 
     // --- NEW: IMAGE & EVIDENCE SECTION WITH PLACEHOLDERS ---
-    doc.text("EVIDENCE LOG:", 20, 120);
-    let yPos = 130;
+    doc.text("EVIDENCE LOG:", 20, yPos);
+    yPos += 10; 
     
     checklist.items.forEach((item, index) => {
         if (yPos > 270) { doc.addPage(); yPos = 20; } // Pagination
