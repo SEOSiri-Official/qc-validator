@@ -117,7 +117,7 @@ export default function DisputePage() {
   return (
     <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 p-8 min-h-screen bg-white">
       
-      {/* --- LEFT: CASE FILE --- */}
+      {/* --- COLUMN 1: LEFT - CASE FILE --- */}
       <div className="lg:col-span-3 space-y-6">
         <h1 className="text-2xl font-bold text-gray-900">Dispute Case File</h1>
         <div>
@@ -136,14 +136,14 @@ export default function DisputePage() {
             <h2 className="font-bold text-sm uppercase text-gray-500">Buyer's Initial Claim</h2>
             <p className="text-sm bg-gray-50 p-3 border rounded mt-1 text-gray-700">{dispute.reason}</p>
         </div>
-      {/* --- UPDATED EVIDENCE DISPLAY --- */}
+        {/* --- Using the new "Shared Evidence" field --- */}
         {dispute.evidence && dispute.evidence.length > 0 && (
             <div>
                 <h2 className="font-bold text-sm uppercase text-gray-500">Shared Evidence</h2>
                 <div className="flex gap-2 mt-2 flex-wrap">
                     {dispute.evidence.map((ev: any, idx: number) => (
                         <a href={ev.url} target="_blank" key={idx} rel="noopener noreferrer">
-                            <img src={ev.url} className="w-16 h-16 object-cover rounded border" alt={`Evidence ${idx + 1}`} />
+                            <img src={ev.url} className="w-16 h-16 object-cover rounded border hover:opacity-80 transition-opacity" alt={`Evidence ${idx + 1}`} />
                         </a>
                     ))}
                 </div>
@@ -151,9 +151,10 @@ export default function DisputePage() {
         )}
       </div>
 
-      {/* --- CENTER: COMMUNICATION LOG --- */}
+      {/* --- COLUMN 2: CENTER - COMMUNICATION LOG --- */}
       <div className="lg:col-span-6 border-l border-r px-6 flex flex-col h-[80vh]">
           <h2 className="text-xl font-bold mb-4 text-gray-900">Private Communication Log</h2>
+          {/* Message Display Area */}
           <div className="flex-1 overflow-y-auto bg-gray-50 p-4 border rounded-xl space-y-4 mb-4">
               {dispute.messages?.map((msg: any, idx: number) => (
                   <div key={idx} className={`flex ${msg.senderId === user.uid ? 'justify-end' : 'justify-start'}`}>
@@ -165,7 +166,12 @@ export default function DisputePage() {
               ))}
               {(!dispute.messages || dispute.messages.length === 0) && <p className="text-center text-gray-400 text-sm mt-10">No messages yet. Start the discussion.</p>}
           </div>
-          <div className="flex gap-2">
+          {/* SINGLE, UNIFIED CHAT INPUT */}
+          <div className="flex gap-2 items-center">
+              <label className="cursor-pointer p-3 border rounded-lg text-gray-500 hover:bg-gray-100">
+                  <span>📎</span>
+                  <input type="file" className="hidden" accept="image/*" onChange={handleEvidenceUpload} />
+              </label>
               <input 
                   value={chatInput} 
                   onChange={e => setChatInput(e.target.value)} 
@@ -177,36 +183,15 @@ export default function DisputePage() {
           </div>
       </div>
 
-{/* --- UPDATED CHAT INPUT --- */}
-          <div className="flex gap-2 items-center">
-              {/* Attachment Button */}
-              <label className="cursor-pointer p-3 border rounded-lg text-gray-500 hover:bg-gray-100">
-                  <span>📎</span>
-                  <input type="file" className="hidden" accept="image/*" onChange={handleEvidenceUpload} />
-              </label>
-
-              {/* Text Input */}
-              <input 
-                  value={chatInput} 
-                  onChange={e => setChatInput(e.target.value)} 
-                  onKeyDown={e => e.key === 'Enter' && sendDisputeMessage()}
-                  className="flex-1 p-3 border rounded-lg" 
-                  placeholder="Type a message..."
-              />
-              <button onClick={sendDisputeMessage} disabled={!chatInput.trim()} className="bg-indigo-600 text-white font-bold px-6 py-2 rounded-lg">Send</button>
-          </div>
-
-      {/* --- RIGHT: ACTIONS & RESOLUTION --- */}
+      {/* --- COLUMN 3: RIGHT - ACTIONS & RESOLUTION --- */}
       <div className="lg:col-span-3 space-y-6">
           <h2 className="text-xl font-bold text-gray-900">Resolution Panel</h2>
           
-          {/* Status Display */}
           <div className={`p-4 rounded-lg border ${dispute.status === 'CLOSED' ? 'bg-green-50 border-green-200' : 'bg-yellow-50 border-yellow-200'}`}>
               <p className={`text-sm font-bold uppercase ${dispute.status === 'CLOSED' ? 'text-green-800' : 'text-yellow-800'}`}>Current Status</p>
               <p className={`font-bold text-lg ${dispute.status === 'CLOSED' ? 'text-green-900' : 'text-yellow-900'}`}>{dispute.status?.replace(/_/g, ' ')}</p>
           </div>
 
-          {/* Seller Action Panel */}
           {isSeller && dispute.status === 'INITIATED' && (
               <div className="bg-white border rounded-lg p-4 shadow-sm">
                   <h3 className="font-bold text-gray-800 mb-2">Propose a Resolution</h3>
@@ -220,7 +205,6 @@ export default function DisputePage() {
               </div>
           )}
 
-          {/* Buyer Action Panel */}
           {isBuyer && dispute.status === 'SELLER_RESPONDED' && (
               <div className="bg-green-50 border border-green-200 p-4 rounded-lg">
                   <h3 className="font-bold text-green-800 mb-2">Seller's Offer</h3>
@@ -232,7 +216,6 @@ export default function DisputePage() {
               </div>
           )}
 
-          {/* Final Resolution Display */}
           {(dispute.status === 'CLOSED' || dispute.status === 'ESCALATED') && (
               <div className="bg-gray-100 p-4 rounded-lg border border-gray-200">
                   <h3 className="font-bold text-gray-700">Final Resolution</h3>
@@ -242,4 +225,4 @@ export default function DisputePage() {
       </div>
     </div>
   );
-}
+  }
