@@ -1905,13 +1905,30 @@ if (loading) return (
                             <button onClick={() => generatePDF(list)} className="flex items-center gap-1 text-xs font-bold text-gray-700 hover:text-black">🖨️ PDF</button>
                         )}
                         <button onClick={() => { const url = `https://qcval.seosiri.com/report/${list.id}`; navigator.clipboard.writeText(url); alert("Link Copied!"); }} className="flex items-center gap-1 text-xs font-bold text-gray-700 hover:text-indigo-600">🔗 Share</button>
-          {user.uid === list.buyerUid && list.agreementStatus === 'completed' && (
+   {user.uid === list.buyerUid && list.agreementStatus === 'completed' && (
     <button 
-        onClick={() => {
-            // Try navigation first
-            router.push(`/disputes/${list.id}`);
-            // Keep modal as fallback (in case navigation fails)
-            setDisputeModalChecklist(list);
+        onClick={async () => {
+            try {
+                // 1. Create the dispute document first
+                const disputeRef = await addDoc(collection(db, "disputes"), {
+                    checklistId: list.id,
+                    buyerId: user.uid,
+                    buyerEmail: user.email,
+                    sellerId: list.uid,
+                    sellerEmail: list.sellerEmail,
+                    projectTitle: list.title,
+                    status: "pending",
+                    createdAt: serverTimestamp(),
+                    description: "", // Will be filled on the dispute page
+                    evidence: []
+                });
+
+                // 2. Navigate to the dispute page with the new dispute ID
+                router.push(`/disputes/${disputeRef.id}`);
+            } catch (error) {
+                console.error("Error creating dispute:", error);
+                alert("Failed to create dispute. Please try again.");
+            }
         }}
         className="flex items-center gap-1 text-xs font-bold text-white bg-orange-600 hover:bg-orange-700 px-3 py-2 rounded-lg transition-all hover:shadow-lg"
     >
