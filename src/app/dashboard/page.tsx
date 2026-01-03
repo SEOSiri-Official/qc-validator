@@ -1905,10 +1905,15 @@ if (loading) return (
                             <button onClick={() => generatePDF(list)} className="flex items-center gap-1 text-xs font-bold text-gray-700 hover:text-black">🖨️ PDF</button>
                         )}
                         <button onClick={() => { const url = `https://qcval.seosiri.com/report/${list.id}`; navigator.clipboard.writeText(url); alert("Link Copied!"); }} className="flex items-center gap-1 text-xs font-bold text-gray-700 hover:text-indigo-600">🔗 Share</button>
-                   {user.uid === list.buyerUid && list.agreementStatus === 'completed' && (
+          {user.uid === list.buyerUid && list.agreementStatus === 'completed' && (
     <button 
-        onClick={() => setDisputeModalChecklist(list)} 
-        className="flex items-center gap-1 text-xs font-bold text-white bg-orange-600 hover:bg-orange-700 px-3 py-2 rounded-lg"
+        onClick={() => {
+            // Try navigation first
+            router.push(`/disputes/${list.id}`);
+            // Keep modal as fallback (in case navigation fails)
+            setDisputeModalChecklist(list);
+        }}
+        className="flex items-center gap-1 text-xs font-bold text-white bg-orange-600 hover:bg-orange-700 px-3 py-2 rounded-lg transition-all hover:shadow-lg"
     >
         ⚠️ Raise Dispute
     </button>
