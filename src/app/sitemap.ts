@@ -15,7 +15,7 @@ async function fetchCollection(
     changeFrequency: 'weekly' | 'monthly' | 'yearly'
 ): Promise<MetadataRoute.Sitemap> {
     try {
-        const snapshot = await db.collection(collectionName).get();
+const snapshot = await db.collection(collectionName).limit(1000).get();
         return snapshot.docs.map(doc => {
             const data = doc.data();
             const lastModified = data.updatedAt?.toDate() || data.createdAt?.toDate() || new Date();
