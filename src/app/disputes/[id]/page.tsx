@@ -6,7 +6,7 @@ import { db, auth } from '@/lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import Link from 'next/link';
 import { useParams } from 'next/navigation'; // <-- Import useParams
-import { uploadDisputeEvidence } from '@/lib/storage';
+import { uploadImageAndGetURL } from '@/lib/storage';
 
 export default function DisputePage() {
   const params = useParams(); // <-- Use the hook
@@ -80,22 +80,37 @@ export default function DisputePage() {
   };
 
 // --- ADD THIS FUNCTION ---
-  const handleEvidenceUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+ const handleEvidenceUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !user || !disputeId) return;
+    if (!file || !user || !dispute) return;
 
-    const downloadURL = await uploadDisputeEvidence(file, disputeId, user.uid);
-    if (!downloadURL) {
-      alert("Failed to upload evidence.");
+    if (file.size > 102400) { // 100KB limit
+      alert("File is too large. Please use a compressed image under 100KB.");
       return;
     }
 
-    // Add the URL to the dispute document in a new 'evidence' field
-    const newEvidence = { url: downloadURL, uploadedBy: user.uid };
-    const disputeRef = doc(db, 'disputes', disputeId);
-    await updateDoc(disputeRef, {
-      evidence: arrayUnion(newEvidence)
-    });
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      const base64String = reader.result as string;
+      try {
+        const downloadURL = await uploadImageAndGetURL(base64String, 'disputes', user.uid);
+        
+        // Instead of sending a text message, send an "attachment" message
+        const message = { 
+            senderId: user.uid, 
+            senderEmail: user.email, 
+            text: `Attached Evidence:`,
+            imageUrl: downloadURL, // <-- ADD THE IMAGE URL
+            timestamp: Date.now() 
+        };
+        const disputeRef = doc(db, 'disputes', dispute.id);
+        await updateDoc(disputeRef, { messages: arrayUnion(message) });
+      } catch (error) {
+        console.error("Error uploading evidence:", error);
+        alert("Failed to upload evidence.");
+      }
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleResolution = async (accepted: boolean) => {
@@ -156,11 +171,18 @@ export default function DisputePage() {
           <h2 className="text-xl font-bold mb-4 text-gray-900">Private Communication Log</h2>
           {/* Message Display Area */}
           <div className="flex-1 overflow-y-auto bg-gray-50 p-4 border rounded-xl space-y-4 mb-4">
-              {dispute.messages?.map((msg: any, idx: number) => (
+             {dispute.messages?.map((msg: any, idx: number) => (
                   <div key={idx} className={`flex ${msg.senderId === user.uid ? 'justify-end' : 'justify-start'}`}>
-                      <div className={`p-3 rounded-lg max-w-sm text-sm shadow-sm ${msg.senderId === user.uid ? 'bg-indigo-600 text-white' : 'bg-white text-gray-800 border border-gray-200'}`}>
+                      <div className={`p-3 rounded-lg max-w-sm text-sm shadow-sm ${msg.senderId === user.uid ? 'bg-indigo-600 text-white' : 'bg-white'}`}>
                           <p className={`font-bold text-[10px] mb-1 ${msg.senderId === user.uid ? 'text-indigo-200' : 'text-gray-500'}`}>{msg.senderEmail?.split('@')[0]}</p>
                           <p>{msg.text}</p>
+                          
+                          {/* --- NEW: DISPLAY IMAGE ATTACHMENT --- */}
+                          {msg.imageUrl && (
+                              <a href={msg.imageUrl} target="_blank" rel="noopener noreferrer" className="mt-2 block">
+                                  <img src={msg.imageUrl} alt="Attached Evidence" className="rounded-lg max-w-full h-auto cursor-pointer" />
+                              </a>
+                          )}
                       </div>
                   </div>
               ))}
