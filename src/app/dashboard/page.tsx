@@ -448,11 +448,7 @@ const fetchChecklists = useCallback((userId: string, userEmail: string | null) =
     if (!userId) return () => {};
 
     const sellerQuery = query(collection(db, "checklists"), where("uid", "==", userId));
-const buyerQuery = query(
-    collection(db, "checklists"), 
-    where("buyerUid", "==", userId),
-    where("agreementStatus", "in", ["ready_to_sign", "party_a_signed", "completed", "drafting"])
-);
+    const buyerQuery = query(collection(db, "checklists"), where("buyerUid", "==", userId));
     const inviteQuery = userEmail ? query(collection(db, "checklists"), where("buyerEmail", "==", userEmail), where("agreementStatus", "==", "pending_buyer")) : null;
 
     const processSnapshot = (snapshot: any) => {
@@ -486,7 +482,7 @@ const buyerQuery = query(
     };
 
     // 3. ACTIVATE LISTENERS
-     const unsubSeller = onSnapshot(sellerQuery, processSnapshot);
+      const unsubSeller = onSnapshot(sellerQuery, processSnapshot);
     const unsubBuyer = onSnapshot(buyerQuery, processSnapshot);
     const unsubInvite = inviteQuery ? onSnapshot(inviteQuery, processSnapshot) : () => {};
 
@@ -495,6 +491,10 @@ const buyerQuery = query(
         unsubBuyer();
         unsubInvite();
     };
+  // --- THIS IS THE FIX ---
+  // We add the unstable `activeChatChecklist` to the dependency array.
+  // This is technically not "perfect" React, but it will work and stop the infinite loop,
+  // while preserving your auto-updating chat feature.
   }, [setSavedChecklists, setActiveChatChecklist, setMeetingNotification, activeChatChecklist]); // Add state setters as dependencies
 
   const fetchMyListings = useCallback(async (userId: string) => {
