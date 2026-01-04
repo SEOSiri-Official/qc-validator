@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import { db } from '@/lib/firebase-admin'; // Ensure you have firebase-admin.ts set up
 import Link from 'next/link';
 import RequestCustomReport from '@/components/RequestCustomReport';
+export const dynamic = 'force-dynamic';
 
 // --- SERVER-SIDE DATA FETCHING ---
 async function getReportData(id: string) {
