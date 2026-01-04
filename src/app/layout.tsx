@@ -87,8 +87,16 @@ export default function RootLayout({
                 <div>
                   <h4 className="text-white font-bold mb-4 text-sm uppercase">Platform</h4>
                   <ul className="space-y-2 text-xs">
-                    <li><Link href="/dashboard" className="hover:text-white">Dashboard</Link></li>
-                    <li><Link href="/manual" className="hover:text-white">User Manual</Link></li>
+                    {/* Key Resources for a Logged-in User */}
+                    <li><Link href="/marketplace" className="hover:text-white">Town Hall</Link></li>
+                    <li><Link href="/press" className="hover:text-white">QC Press</Link></li>
+                    <li><Link href="/standards" className="hover:text-white">Standards Hub</Link></li>
+                    <li><Link href="/faq" className="hover:text-white">Help & FAQ</Link></li>
+                    
+                    {/* Secondary/Company Info Links */}
+                    <li className="pt-2 border-t border-gray-800"><Link href="/why" className="hover:text-white">Why QC Validator</Link></li>
+                    <li><Link href="/about" className="hover:text-white">About Us</Link></li>
+                    <li><Link href="/features" className="hover:text-white">Enterprise Features</Link></li>
                   </ul>
                 </div>
              {/* Legal Links */}
