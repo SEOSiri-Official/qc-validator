@@ -15,39 +15,28 @@ export async function uploadImageAndGetURL(base64: string, userId: string): Prom
 }
 
 
-// --- NEW FUNCTION (ADDED) ---
-// Used specifically for dispute evidence, includes compression.
 export const uploadDisputeEvidence = async (file: File, disputeId: string, userId: string) => {
   if (!file || !disputeId || !userId) return null;
 
-  // Compression options to target ~100KB for lightweight storage
   const options = {
-    maxSizeMB: 0.1, // Max size 100KB
+    maxSizeMB: 0.1, // 100KB
     maxWidthOrHeight: 1024,
     useWebWorker: true,
   };
 
   try {
-    // 1. Compress the image file
+    // 1. Compress the file
     const compressedFile = await imageCompression(file, options);
     
-    // 2. Convert the compressed file to a Base64 Data URL
-    const reader = new FileReader();
-    const base64Promise = new Promise<string>((resolve, reject) => {
-        reader.onloadend = () => resolve(reader.result as string);
-        reader.onerror = reject;
-        reader.readAsDataURL(compressedFile);
-    });
-    const base64String = await base64Promise;
+    // 2. Convert to Base64 (This is the key step)
+    const base64String = await imageCompression.getDataUrlFromFile(compressedFile);
     
-    // 3. Define the storage path
+    // 3. Define path and upload the Base64 string
     const filePath = `disputes/${disputeId}/${userId}_${Date.now()}.jpg`;
     const storageRef = ref(storage, filePath);
-    
-    // 4. Upload the Base64 string
     await uploadString(storageRef, base64String, 'data_url');
     
-    // 5. Get the public download URL
+    // 4. Get URL
     const downloadURL = await getDownloadURL(storageRef);
     return downloadURL;
 

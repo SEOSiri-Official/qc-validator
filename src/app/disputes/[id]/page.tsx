@@ -167,21 +167,32 @@ export default function DisputePage() {
               {(!dispute.messages || dispute.messages.length === 0) && <p className="text-center text-gray-400 text-sm mt-10">No messages yet. Start the discussion.</p>}
           </div>
           {/* SINGLE, UNIFIED CHAT INPUT */}
-          <div className="flex gap-2 items-center">
-              <label className="cursor-pointer p-3 border rounded-lg text-gray-500 hover:bg-gray-100">
-                  <span>📎</span>
-                  <input type="file" className="hidden" accept="image/*" onChange={handleEvidenceUpload} />
-              </label>
+        <div className="flex gap-2 items-center">
+              
+              {/* --- UPDATED ATTACHMENT BUTTON WITH TOOLTIP --- */}
+              <div className="relative group">
+                  <label className="cursor-pointer p-3 border rounded-lg text-gray-500 hover:bg-gray-100 block">
+                      <span>📎</span>
+                      <input type="file" className="hidden" accept="image/jpeg,image/webp" onChange={handleEvidenceUpload} />
+                  </label>
+                  {/* Tooltip visible on hover */}
+                  <div className="absolute bottom-full mb-2 w-32 bg-black text-white text-xs text-center rounded-lg p-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+                      Attach evidence
+                      <span className="block font-bold">Max 100KB</span>
+                  </div>
+              </div>
+
+              {/* Text Input */}
               <input 
                   value={chatInput} 
                   onChange={e => setChatInput(e.target.value)} 
                   onKeyDown={e => e.key === 'Enter' && sendDisputeMessage()}
-                  className="flex-1 p-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm" 
-                  placeholder="Type a message to resolve this..."
+                  className="flex-1 p-3 border rounded-lg" 
+                  placeholder="Type a message..."
               />
-              <button onClick={sendDisputeMessage} disabled={!chatInput.trim()} className="bg-indigo-600 text-white font-bold px-6 py-2 rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors">Send</button>
+              <button onClick={sendDisputeMessage} disabled={!chatInput.trim()} className="bg-indigo-600 text-white font-bold px-6 py-2 rounded-lg">Send</button>
           </div>
-      </div>
+          </div>
 
       {/* --- COLUMN 3: RIGHT - ACTIONS & RESOLUTION --- */}
       <div className="lg:col-span-3 space-y-6">
