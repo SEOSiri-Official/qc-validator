@@ -182,8 +182,7 @@ export default function DisputePage() {
                           {/* --- NEW: DISPLAY IMAGE ATTACHMENT --- */}
                           {msg.imageUrl && (
                               <a href={msg.imageUrl} target="_blank" rel="noopener noreferrer" className="mt-2 block">
-                                  <img src={msg.imageUrl} alt="Attached Evidence" className="rounded-lg max-w-full h-auto cursor-pointer" />
-                              </a>
+<img src={msg.imageUrl} alt="Attached Evidence" className="mt-2 rounded-lg w-full max-w-xs h-auto cursor-pointer" />                              </a>
                           )}
                       </div>
                   </div>
