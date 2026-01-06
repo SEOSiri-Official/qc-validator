@@ -6,7 +6,6 @@ import { db, auth } from '@/lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import Link from 'next/link';
 import { useParams } from 'next/navigation'; // <-- Import useParams
-import { uploadImageAndGetURL } from '@/lib/storage';
 
 export default function DisputePage() {
   const params = useParams(); // <-- Use the hook
@@ -85,29 +84,32 @@ export default function DisputePage() {
     if (!file || !user || !dispute) return;
 
     if (file.size > 102400) { // 100KB limit
-      alert("File is too large. Please use a compressed image under 100KB.");
+      alert("File is too large. Max 100KB.");
       return;
     }
 
+    // Convert the image to a Base64 string
     const reader = new FileReader();
     reader.onloadend = async () => {
       const base64String = reader.result as string;
+      
       try {
-        const downloadURL = await uploadImageAndGetURL(base64String, 'disputes', user.uid);
-        
-        // Instead of sending a text message, send an "attachment" message
+        // Create a new message object that INCLUDES the image data
         const message = { 
             senderId: user.uid, 
             senderEmail: user.email, 
             text: `Attached Evidence:`,
-            imageUrl: downloadURL, // <-- ADD THE IMAGE URL
+            imageUrl: base64String, // <-- SAVE THE BASE64 STRING DIRECTLY
             timestamp: Date.now() 
         };
+
+        // Update the 'messages' array in the dispute document
         const disputeRef = doc(db, 'disputes', dispute.id);
         await updateDoc(disputeRef, { messages: arrayUnion(message) });
+
       } catch (error) {
-        console.error("Error uploading evidence:", error);
-        alert("Failed to upload evidence.");
+        console.error("Error saving evidence to Firestore:", error);
+        alert("Failed to attach evidence.");
       }
     };
     reader.readAsDataURL(file);
