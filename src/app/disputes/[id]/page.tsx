@@ -189,26 +189,26 @@ const sendDisputeMessage = async () => {
           <div className="flex-1 overflow-y-auto bg-gray-50 p-4 border rounded-xl space-y-4 mb-4">
              {dispute.messages?.map((msg: any, idx: number) => (
                   <div key={`${idx}-${msg.timestamp}`} className={`flex ${msg.senderId === user.uid ? 'justify-end' : 'justify-start'}`}>
-                      <div className={`p-3 rounded-lg max-w-sm text-sm shadow-sm ${msg.senderId === user.uid ? 'bg-indigo-600 text-white' : 'bg-white'}`}>
-                          
-                          {/* --- PRESENCE INDICATOR & SENDER NAME --- */}
-                          <div className="flex items-center gap-2 mb-1">
-                              {/* Presence Dot */}
-<span className={`w-2 h-2 rounded-full ${isUserOnline(msg.lastSeen) ? 'bg-indigo-500 animate-pulse' : 'bg-gray-500'}`}></span>
-                              {/* Sender Name */}
-                              <p className={`font-bold text-[10px] ${msg.senderId === user.uid ? 'text-indigo-200' : 'text-gray-500'}`}>{msg.senderEmail?.split('@')[0]}</p>
-                          </div>
+<div className={`p-3 rounded-lg max-w-sm text-sm shadow-sm ${msg.senderId === user.uid ? 'bg-indigo-600 text-white' : 'bg-white border'}`}>
+    
+    {/* Show sender details ONLY for messages from OTHERS */}
+    {msg.senderId !== user.uid && (
+        <div className="flex items-center gap-2 mb-1">
+            <span className={`w-2 h-2 rounded-full ${isUserOnline(msg.lastSeen) ? 'bg-green-400 animate-pulse' : 'bg-gray-400'}`}></span>
+            <p className="font-bold text-[10px] text-gray-700">{msg.senderEmail?.split('@')[0]}</p>
+        </div>
+    )}
 
-                          {/* Message Text */}
-                          <p>{msg.text}</p>
-                          
-                          {/* Image Attachment (Existing) */}
-                          {msg.imageUrl && (
-                              <a href={msg.imageUrl} target="_blank" rel="noopener noreferrer" className="mt-2 block">
-                                  <img src={msg.imageUrl} alt="Attached Evidence" className="mt-2 rounded-lg w-full max-w-xs h-auto cursor-pointer" />
-                              </a>
-                          )}
-                      </div>
+    {/* Message Text */}
+    <p className="whitespace-pre-wrap">{msg.text}</p>
+    
+    {/* Image Attachment (Preserved) */}
+    {msg.imageUrl && (
+        <a href={msg.imageUrl} target="_blank" rel="noopener noreferrer" className="mt-2 block">
+            <img src={msg.imageUrl} alt="Attached Evidence" className="rounded-lg w-full max-w-xs h-auto cursor-pointer" />
+        </a>
+    )}
+</div>
                   </div>
               ))}
               {(!dispute.messages || dispute.messages.length === 0) && <p className="text-center text-gray-400 text-sm mt-10">No messages yet. Start the discussion.</p>}
