@@ -184,7 +184,7 @@ export default function DisputePage() {
           {/* Message Display Area */}
           <div className="flex-1 overflow-y-auto bg-gray-50 p-4 border rounded-xl space-y-4 mb-4">
              {dispute.messages?.map((msg: any, idx: number) => (
-                  <div key={idx} className={`flex ${msg.senderId === user.uid ? 'justify-end' : 'justify-start'}`}>
+                  <div key={`${idx}-${msg.timestamp}`} className={`flex ${msg.senderId === user.uid ? 'justify-end' : 'justify-start'}`}>
                       <div className={`p-3 rounded-lg max-w-sm text-sm shadow-sm ${msg.senderId === user.uid ? 'bg-indigo-600 text-white' : 'bg-white'}`}>
                           
                           {/* --- PRESENCE INDICATOR & SENDER NAME --- */}
