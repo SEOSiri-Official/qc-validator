@@ -190,7 +190,7 @@ export default function DisputePage() {
                           {/* --- PRESENCE INDICATOR & SENDER NAME --- */}
                           <div className="flex items-center gap-2 mb-1">
                               {/* Presence Dot */}
-<span className={`w-2 h-2 rounded-full ${isUserOnline(msg.lastSeen) ? 'bg-indigo-500 animate-pulse' : 'bg-gray-300'}`}></span>                              
+<span className={`w-2 h-2 rounded-full ${isUserOnline(msg.lastSeen) ? 'bg-indigo-500 animate-pulse' : 'bg-gray-500'}`}></span>
                               {/* Sender Name */}
                               <p className={`font-bold text-[10px] ${msg.senderId === user.uid ? 'text-indigo-200' : 'text-gray-500'}`}>{msg.senderEmail?.split('@')[0]}</p>
                           </div>
