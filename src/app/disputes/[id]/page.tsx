@@ -38,7 +38,8 @@ export default function DisputePage() {
         senderId: user.uid, 
         senderEmail: user.email, 
         text: chatInput, 
-        timestamp: Date.now() 
+        timestamp: Date.now(), 
+        lastSeen: serverTimestamp() 
     };
 
     const disputeRef = doc(db, 'disputes', dispute.id);
@@ -133,12 +134,15 @@ export default function DisputePage() {
   const isBuyer = user.uid === dispute.buyerId;
 
   // --- HELPER FUNCTION for Presence Indicator ---
-  const isUserOnline = (lastSeen: any): boolean => {
+ const isUserOnline = (lastSeen: any): boolean => {
+    // If lastSeen is missing (old message) or null, return false
     if (!lastSeen) return false;
-    // Check if lastSeen is a Firestore Timestamp or a standard JS Date
+    
+    // Convert Firestore Timestamp to milliseconds
     const lastSeenTime = lastSeen.seconds ? lastSeen.seconds * 1000 : new Date(lastSeen).getTime();
-    // Consider "online" if active in the last 5 minutes
-    return (Date.now() - lastSeenTime) < 300000; // 300,000 milliseconds = 5 minutes
+    
+    // Consider online if active in the last 5 minutes
+    return (Date.now() - lastSeenTime) < 300000;
   };
 
   return (
