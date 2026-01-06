@@ -31,35 +31,35 @@ export default function DisputePage() {
     return () => { unsubAuth(); unsubDispute(); };
   }, [disputeId]);
 
- const sendDisputeMessage = async () => {
+const sendDisputeMessage = async () => {
     if (!chatInput.trim() || !user || !dispute) return;
 
+    // 1. Create the message object WITHOUT the serverTimestamp
     const message = { 
         senderId: user.uid, 
         senderEmail: user.email, 
         text: chatInput, 
-        timestamp: Date.now(), 
-        lastSeen: serverTimestamp() 
+        timestamp: Date.now() // Use the reliable client-side timestamp
     };
 
     const disputeRef = doc(db, 'disputes', dispute.id);
+    const userRef = doc(db, 'users', user.uid); // Reference to the user's profile
 
     try {
-        // 1. Update the document with the new message
+        // --- STEP 1: Update the dispute with the new message ---
         await updateDoc(disputeRef, { messages: arrayUnion(message) });
-        await updateDoc(doc(db, 'users', user.uid), { lastSeen: serverTimestamp() }); 
 
-        // --- 2. CREATE THE NOTIFICATION (Client-Side) ---
-        // Determine who the *other* person is
+        // --- STEP 2: Update the user's lastSeen status separately ---
+        await updateDoc(userRef, { lastSeen: serverTimestamp() });
+
+        // --- STEP 3: Create the notification ---
         const recipientId = user.uid === dispute.sellerId ? dispute.buyerId : dispute.sellerId;
-        const senderName = user.email?.split('@')[0];
-
         if (recipientId) {
             await addDoc(collection(db, "notifications"), {
                 recipientId: recipientId,
                 title: `⚠️ New Message in Dispute`,
-                message: `${senderName}: "${chatInput.substring(0, 30)}..."`,
-                link: `/disputes/${dispute.id}`, // Link directly to the dispute
+                message: `${user.email?.split('@')[0]}: "${chatInput.substring(0, 30)}..."`,
+                link: `/disputes/${dispute.id}`,
                 isRead: false,
                 createdAt: serverTimestamp()
             });
@@ -68,7 +68,7 @@ export default function DisputePage() {
         setChatInput(''); // Clear the input on success
     } catch (error) {
         console.error("Error sending dispute message:", error);
-        alert("Failed to send message. Please check your connection or permissions.");
+        alert("Failed to send message. Please check permissions.");
     }
   };
   
