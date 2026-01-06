@@ -585,7 +585,12 @@ const fetchChecklists = useCallback((userId: string, userEmail: string | null) =
 
             } else {
               // 3. If no user doc exists, create a basic one
-              await setDoc(userRef, { email: user.email, isDomainVerified: false }, { merge: true });
+await setDoc(userRef, { 
+    email: user.email, 
+    isDomainVerified: false,
+    createdAt: serverTimestamp(),
+    lastSeen: serverTimestamp()
+}, { merge: true });
             }
             
             // 4. Default to not verified if none of the above are true

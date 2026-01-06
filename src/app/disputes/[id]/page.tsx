@@ -46,6 +46,7 @@ export default function DisputePage() {
     try {
         // 1. Update the document with the new message
         await updateDoc(disputeRef, { messages: arrayUnion(message) });
+        await updateDoc(doc(db, 'users', user.uid), { lastSeen: serverTimestamp() }); 
 
         // --- 2. CREATE THE NOTIFICATION (Client-Side) ---
         // Determine who the *other* person is
@@ -131,6 +132,15 @@ export default function DisputePage() {
   const isSeller = user.uid === dispute.sellerId;
   const isBuyer = user.uid === dispute.buyerId;
 
+  // --- HELPER FUNCTION for Presence Indicator ---
+  const isUserOnline = (lastSeen: any): boolean => {
+    if (!lastSeen) return false;
+    // Check if lastSeen is a Firestore Timestamp or a standard JS Date
+    const lastSeenTime = lastSeen.seconds ? lastSeen.seconds * 1000 : new Date(lastSeen).getTime();
+    // Consider "online" if active in the last 5 minutes
+    return (Date.now() - lastSeenTime) < 300000; // 300,000 milliseconds = 5 minutes
+  };
+
   return (
     <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 p-8 min-h-screen bg-white">
       
@@ -176,13 +186,24 @@ export default function DisputePage() {
              {dispute.messages?.map((msg: any, idx: number) => (
                   <div key={idx} className={`flex ${msg.senderId === user.uid ? 'justify-end' : 'justify-start'}`}>
                       <div className={`p-3 rounded-lg max-w-sm text-sm shadow-sm ${msg.senderId === user.uid ? 'bg-indigo-600 text-white' : 'bg-white'}`}>
-                          <p className={`font-bold text-[10px] mb-1 ${msg.senderId === user.uid ? 'text-indigo-200' : 'text-gray-500'}`}>{msg.senderEmail?.split('@')[0]}</p>
+                          
+                          {/* --- PRESENCE INDICATOR & SENDER NAME --- */}
+                          <div className="flex items-center gap-2 mb-1">
+                              {/* Presence Dot */}
+                              <span className={`w-2 h-2 rounded-full ${isUserOnline(msg.lastSeen) ? 'bg-green-400' : 'bg-gray-300'}`}></span>
+                              
+                              {/* Sender Name */}
+                              <p className={`font-bold text-[10px] ${msg.senderId === user.uid ? 'text-indigo-200' : 'text-gray-500'}`}>{msg.senderEmail?.split('@')[0]}</p>
+                          </div>
+
+                          {/* Message Text */}
                           <p>{msg.text}</p>
                           
-                          {/* --- NEW: DISPLAY IMAGE ATTACHMENT --- */}
+                          {/* Image Attachment (Existing) */}
                           {msg.imageUrl && (
                               <a href={msg.imageUrl} target="_blank" rel="noopener noreferrer" className="mt-2 block">
-<img src={msg.imageUrl} alt="Attached Evidence" className="mt-2 rounded-lg w-full max-w-xs h-auto cursor-pointer" />                              </a>
+                                  <img src={msg.imageUrl} alt="Attached Evidence" className="mt-2 rounded-lg w-full max-w-xs h-auto cursor-pointer" />
+                              </a>
                           )}
                       </div>
                   </div>
