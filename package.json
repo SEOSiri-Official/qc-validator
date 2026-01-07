@@ -20,6 +20,7 @@
     "js-cookie": "^3.0.5",
     "jspdf": "^2.5.1",
     "next": "14.2.3",
+    "nodemailer": "^7.0.12",
     "papaparse": "^5.4.1",
     "react": "^18",
     "react-dom": "^18"
@@ -27,6 +28,7 @@
   "devDependencies": {
     "@types/js-cookie": "^3.0.6",
     "@types/node": "^20",
+    "@types/nodemailer": "^7.0.4",
     "@types/papaparse": "^5.3.14",
     "@types/react": "^18",
     "@types/react-dom": "^18",

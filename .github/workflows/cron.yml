@@ -1,16 +1,26 @@
-name: "QC Validator Daily Maintenance"
+name: "QC Validator Scheduled Jobs"
 
 on:
   schedule:
-    # Runs at 01:00 UTC every day.
-    - cron: "0 1 * * *"
-  workflow_dispatch: # Allows manual triggering from the Actions tab
+    # This now runs once every hour
+    - cron: "0 * * * *"
+  workflow_dispatch:
 
 jobs:
-  daily-tasks:
+  scheduled-tasks:
     runs-on: ubuntu-latest
     steps:
-      - name: Trigger Daily Cron Job
+      # --- STEP 1: Run the HOURLY Email Alerts Job ---
+      - name: Trigger Email Alerts Job
+        run: |
+          curl --request POST \
+            --url 'https://qcval.seosiri.com/api/send-alerts' \
+            --header 'Authorization: Bearer ${{ secrets.CRON_SECRET }}'
+
+      # --- STEP 2: Run the DAILY Maintenance Job (only at 1:00 UTC) ---
+      # The 'if' condition ensures this step only runs once per day
+      - name: Trigger Daily Maintenance Job
+        if: github.event.schedule == '0 1 * * *'
         run: |
           curl --request POST \
             --url 'https://qcval.seosiri.com/api/cron' \
