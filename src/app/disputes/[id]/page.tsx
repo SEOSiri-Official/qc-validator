@@ -194,7 +194,7 @@ const sendDisputeMessage = async () => {
     {/* Show sender details ONLY for messages from OTHERS */}
     {msg.senderId !== user.uid && (
         <div className="flex items-center gap-2 mb-1">
-            <span className={`w-2 h-2 rounded-full ${isUserOnline(msg.lastSeen) ? 'bg-green-400 animate-pulse' : 'bg-gray-400'}`}></span>
+<span className={`w-2 h-2 rounded-full ${isUserOnline(msg.lastSeen) ? 'bg-indigo-500 animate-pulse' : 'bg-gray-400'}`}></span>
             <p className="font-bold text-[10px] text-gray-700">{msg.senderEmail?.split('@')[0]}</p>
         </div>
     )}
