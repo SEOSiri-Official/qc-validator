@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { doc, onSnapshot, updateDoc, arrayUnion,addDoc, collection, serverTimestamp} from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
@@ -17,6 +17,46 @@ export default function DisputePage() {
   const [chatInput, setChatInput] = useState('');
   const [offerInput, setOfferInput] = useState('');
 
+  // --- NEW STATES FOR ADVANCED CHAT ---
+  const [otherPartyOnline, setOtherPartyOnline] = useState(false);
+  const [lastSeen, setLastSeen] = useState<any>(null);
+  const [isTyping, setIsTyping] = useState(false);
+  const [otherPartyTyping, setOtherPartyTyping] = useState(false);
+  const [isSending, setIsSending] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // --- NEW: EFFECT for Real-Time Presence & Typing ---
+  useEffect(() => {
+    if (!user || !dispute) return;
+
+    // Identify the *other* user in the dispute
+    const otherPartyId = user.uid === dispute.sellerId ? dispute.buyerId : dispute.sellerId;
+    if (!otherPartyId) return;
+    
+    // Listen for changes on the other user's profile
+    const unsubOtherParty = onSnapshot(doc(db, 'users', otherPartyId), (doc) => {
+      if (doc.exists()) {
+        const data = doc.data();
+        setOtherPartyOnline(isUserOnline(data.lastSeen));
+        setLastSeen(data.lastSeen);
+        
+        // Check if the other party is typing in *this* dispute
+        if (data.typingInDispute === dispute.id) {
+          setOtherPartyTyping(true);
+        } else {
+          setOtherPartyTyping(false);
+        }
+      }
+    });
+
+    return () => unsubOtherParty();
+  }, [user, dispute]);
+
+  // --- NEW: EFFECT for Auto-Scrolling ---
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [dispute?.messages, otherPartyTyping]);
+
   useEffect(() => {
     const unsubAuth = onAuthStateChanged(auth, (currentUser) => setUser(currentUser));
     
@@ -31,26 +71,39 @@ export default function DisputePage() {
     return () => { unsubAuth(); unsubDispute(); };
   }, [disputeId]);
 
-const sendDisputeMessage = async () => {
-    if (!chatInput.trim() || !user || !dispute) return;
+const handleTyping = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setChatInput(e.target.value);
+    const userRef = doc(db, 'users', user!.uid);
+    // Let the other user know you're typing in this specific dispute
+    updateDoc(userRef, { typingInDispute: dispute.id });
+    setIsTyping(true);
+    
+    // Set a timeout to clear the typing status
+    setTimeout(() => {
+      updateDoc(userRef, { typingInDispute: null });
+      setIsTyping(false);
+    }, 3000); // Clear after 3 seconds of inactivity
+  };
 
-    // 1. Create the message object WITHOUT the serverTimestamp
+  const sendDisputeMessage = async () => {
+    if (!chatInput.trim() || !user || !dispute || isSending) return;
+    setIsSending(true);
+
     const message = { 
         senderId: user.uid, 
         senderEmail: user.email, 
         text: chatInput, 
-        timestamp: Date.now() // Use the reliable client-side timestamp
+        timestamp: Date.now()
     };
 
     const disputeRef = doc(db, 'disputes', dispute.id);
-    const userRef = doc(db, 'users', user.uid); // Reference to the user's profile
+    const userRef = doc(db, 'users', user.uid);
 
     try {
-        // --- STEP 1: Update the dispute with the new message ---
         await updateDoc(disputeRef, { messages: arrayUnion(message) });
+        // Clear typing status and update lastSeen
+        await updateDoc(userRef, { lastSeen: serverTimestamp(), typingInDispute: null });
 
-        // --- STEP 2: Update the user's lastSeen status separately ---
-        await updateDoc(userRef, { lastSeen: serverTimestamp() });
 
         // --- STEP 3: Create the notification ---
         const recipientId = user.uid === dispute.sellerId ? dispute.buyerId : dispute.sellerId;
@@ -65,10 +118,12 @@ const sendDisputeMessage = async () => {
             });
         }
 
-        setChatInput(''); // Clear the input on success
+      setChatInput('');
+        setIsTyping(false);
     } catch (error) {
-        console.error("Error sending dispute message:", error);
-        alert("Failed to send message. Please check permissions.");
+        console.error("Error sending message:", error);
+    } finally {
+        setIsSending(false);
     }
   };
   
@@ -125,6 +180,12 @@ const sendDisputeMessage = async () => {
           status: accepted ? 'CLOSED' : 'ESCALATED'
       });
   };
+  // --- HELPER FUNCTION for Presence Indicator ---
+  const isUserOnline = (lastSeen: any): boolean => {
+    if (!lastSeen) return false;
+    const lastSeenTime = lastSeen.seconds ? lastSeen.seconds * 1000 : new Date(lastSeen).getTime();
+    return (Date.now() - lastSeenTime) < 300000; // 5 minutes
+  };
 
   if (loading) return <div className="text-center p-10">Loading Dispute...</div>;
   if (!user) return <div className="text-center p-10">Please log in to view this dispute.</div>;
@@ -134,15 +195,20 @@ const sendDisputeMessage = async () => {
   const isBuyer = user.uid === dispute.buyerId;
 
   // --- HELPER FUNCTION for Presence Indicator ---
- const isUserOnline = (lastSeen: any): boolean => {
-    // If lastSeen is missing (old message) or null, return false
-    if (!lastSeen) return false;
-    
-    // Convert Firestore Timestamp to milliseconds
-    const lastSeenTime = lastSeen.seconds ? lastSeen.seconds * 1000 : new Date(lastSeen).getTime();
-    
-    // Consider online if active in the last 5 minutes
-    return (Date.now() - lastSeenTime) < 300000;
+ const formatTime = (timestamp: number) => {
+    return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+
+  const formatLastSeen = (timestamp: any) => {
+    if (!timestamp) return 'a while ago';
+    const date = timestamp.seconds ? new Date(timestamp.seconds * 1000) : new Date(timestamp);
+    // Add more complex date formatting logic here if needed (e.g., using date-fns)
+    return date.toLocaleDateString();
+  };
+
+  const getStatusIcon = (status: string) => {
+    // Logic for read receipts (future feature)
+    return '✓';
   };
 
   return (
@@ -184,62 +250,126 @@ const sendDisputeMessage = async () => {
 
       {/* --- COLUMN 2: CENTER - COMMUNICATION LOG --- */}
       <div className="lg:col-span-6 border-l border-r px-6 flex flex-col h-[80vh]">
-          <h2 className="text-xl font-bold mb-4 text-gray-900">Private Communication Log</h2>
-          {/* Message Display Area */}
-          <div className="flex-1 overflow-y-auto bg-gray-50 p-4 border rounded-xl space-y-4 mb-4">
-             {dispute.messages?.map((msg: any, idx: number) => (
-                  <div key={`${idx}-${msg.timestamp}`} className={`flex ${msg.senderId === user.uid ? 'justify-end' : 'justify-start'}`}>
-<div className={`p-3 rounded-lg max-w-sm text-sm shadow-sm ${msg.senderId === user.uid ? 'bg-indigo-600 text-white' : 'bg-white border'}`}>
-    
-    {/* Show sender details ONLY for messages from OTHERS */}
-    {msg.senderId !== user.uid && (
-        <div className="flex items-center gap-2 mb-1">
-<span className={`w-2 h-2 rounded-full ${isUserOnline(msg.lastSeen) ? 'bg-indigo-500 animate-pulse' : 'bg-gray-400'}`}></span>
-            <p className="font-bold text-[10px] text-gray-700">{msg.senderEmail?.split('@')[0]}</p>
-        </div>
-    )}
+  {/* Header with Online Status */}
+  <div className="flex items-center justify-between mb-4">
+    <h2 className="text-xl font-bold text-gray-900">Private Communication Log</h2>
+    <div className="flex items-center gap-2 bg-gray-100 px-3 py-1.5 rounded-full">
+      <span className={`w-2 h-2 rounded-full ${otherPartyOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}></span>
+      <span className="text-sm font-medium text-gray-700">
+        {otherPartyOnline ? 'Online' : `Last seen ${formatLastSeen(lastSeen)}`}
+      </span>
+    </div>
+  </div>
 
-    {/* Message Text */}
-    <p className="whitespace-pre-wrap">{msg.text}</p>
-    
-    {/* Image Attachment (Preserved) */}
-    {msg.imageUrl && (
-        <a href={msg.imageUrl} target="_blank" rel="noopener noreferrer" className="mt-2 block">
-            <img src={msg.imageUrl} alt="Attached Evidence" className="rounded-lg w-full max-w-xs h-auto cursor-pointer" />
-        </a>
-    )}
-</div>
-                  </div>
-              ))}
-              {(!dispute.messages || dispute.messages.length === 0) && <p className="text-center text-gray-400 text-sm mt-10">No messages yet. Start the discussion.</p>}
-          </div>
-          {/* SINGLE, UNIFIED CHAT INPUT */}
-        <div className="flex gap-2 items-center">
-              
-              {/* --- UPDATED ATTACHMENT BUTTON WITH TOOLTIP --- */}
-              <div className="relative group">
-                  <label className="cursor-pointer p-3 border rounded-lg text-gray-500 hover:bg-gray-100 block">
-                      <span>📎</span>
-                      <input type="file" className="hidden" accept="image/jpeg,image/webp" onChange={handleEvidenceUpload} />
-                  </label>
-                  {/* Tooltip visible on hover */}
-                  <div className="absolute bottom-full mb-2 w-32 bg-black text-white text-xs text-center rounded-lg p-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-                      Attach evidence
-                      <span className="block font-bold">Max 100KB</span>
-                  </div>
+  {/* Message Display Area */}
+  <div className="flex-1 overflow-y-auto bg-gray-50 p-4 border rounded-xl space-y-4 mb-4">
+    {dispute.messages?.map((msg: any, idx: number) => {
+      const isOwnMessage = msg.senderId === user.uid;
+      
+      return (
+        <div key={`${idx}-${msg.timestamp}`} className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'}`}>
+          <div className="max-w-sm flex flex-col">
+            {/* Show sender details ONLY for messages from OTHERS */}
+            {!isOwnMessage && (
+              <div className="flex items-center gap-2 mb-1 px-2">
+                <span className={`w-2 h-2 rounded-full ${isUserOnline(msg.lastSeen) ? 'bg-indigo-500 animate-pulse' : 'bg-gray-400'}`}></span>
+                <p className="font-bold text-[10px] text-gray-700">{msg.senderEmail?.split('@')[0]}</p>
               </div>
+            )}
 
-              {/* Text Input */}
-              <input 
-                  value={chatInput} 
-                  onChange={e => setChatInput(e.target.value)} 
-                  onKeyDown={e => e.key === 'Enter' && sendDisputeMessage()}
-                  className="flex-1 p-3 border rounded-lg" 
-                  placeholder="Type a message..."
-              />
-              <button onClick={sendDisputeMessage} disabled={!chatInput.trim()} className="bg-indigo-600 text-white font-bold px-6 py-2 rounded-lg">Send</button>
+            {/* Message Bubble */}
+            <div className={`p-3 rounded-lg text-sm shadow-sm ${
+              isOwnMessage 
+                ? 'bg-indigo-600 text-white rounded-br-none' 
+                : 'bg-white border rounded-bl-none'
+            }`}>
+              {/* Message Text */}
+              <p className="whitespace-pre-wrap">{msg.text}</p>
+              
+              {/* Image Attachment (Preserved) */}
+              {msg.imageUrl && (
+                <a href={msg.imageUrl} target="_blank" rel="noopener noreferrer" className="mt-2 block">
+                  <img src={msg.imageUrl} alt="Attached Evidence" className="rounded-lg w-full max-w-xs h-auto cursor-pointer" />
+                </a>
+              )}
+            </div>
+
+            {/* Timestamp and Status */}
+            <div className={`flex items-center gap-1 mt-1 px-2 text-xs text-gray-500 ${isOwnMessage ? 'justify-end' : 'justify-start'}`}>
+              <span>{formatTime(msg.timestamp)}</span>
+              {isOwnMessage && getStatusIcon(msg.status || 'sent')}
+            </div>
           </div>
+        </div>
+      );
+    })}
+
+    {/* Typing Indicator */}
+    {otherPartyTyping && (
+      <div className="flex justify-start">
+        <div className="max-w-sm">
+          <div className="bg-white border rounded-lg rounded-bl-none p-3 shadow-sm">
+            <div className="flex gap-1">
+              <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+              <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+              <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+            </div>
           </div>
+          <div className="text-xs text-gray-500 mt-1 px-2">typing...</div>
+        </div>
+      </div>
+    )}
+
+    {/* Empty State */}
+    {(!dispute.messages || dispute.messages.length === 0) && !otherPartyTyping && (
+      <p className="text-center text-gray-400 text-sm mt-10">No messages yet. Start the discussion.</p>
+    )}
+
+    <div ref={messagesEndRef} />
+  </div>
+
+  {/* SINGLE, UNIFIED CHAT INPUT */}
+  <div className="flex gap-2 items-center">
+    {/* --- UPDATED ATTACHMENT BUTTON WITH TOOLTIP --- */}
+    <div className="relative group">
+      <label className="cursor-pointer p-3 border rounded-lg text-gray-500 hover:bg-gray-100 block">
+        <span>📎</span>
+        <input type="file" className="hidden" accept="image/jpeg,image/webp" onChange={handleEvidenceUpload} />
+      </label>
+      {/* Tooltip visible on hover */}
+      <div className="absolute bottom-full mb-2 w-32 bg-black text-white text-xs text-center rounded-lg p-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+        Attach evidence
+        <span className="block font-bold">Max 100KB</span>
+      </div>
+    </div>
+
+    {/* Text Input */}
+    <input 
+      value={chatInput} 
+      onChange={handleTyping}
+      onKeyDown={e => e.key === 'Enter' && !isSending && sendDisputeMessage()}
+      className="flex-1 p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" 
+      placeholder="Type a message..."
+      disabled={isSending}
+    />
+    
+    <button 
+      onClick={sendDisputeMessage} 
+      disabled={!chatInput.trim() || isSending} 
+      className="bg-indigo-600 text-white font-bold px-6 py-2 rounded-lg disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2"
+    >
+      {isSending ? <span className="animate-spin">⏳</span> : null}
+      Send
+    </button>
+  </div>
+
+  {/* Typing Status Indicator */}
+  {isTyping && (
+    <div className="text-xs text-gray-500 mt-2 px-2">
+      Other party will see you're typing...
+    </div>
+  )}
+</div>
 
       {/* --- COLUMN 3: RIGHT - ACTIONS & RESOLUTION --- */}
       <div className="lg:col-span-3 space-y-6">
