@@ -532,7 +532,7 @@ const fetchChecklists = useCallback((userId: string, userEmail: string | null) =
   }, [router]);
 
   // --- EFFECT 2: DATA FETCHER (Reacts to user changes) ---
-  /*
+
   useEffect(() => {
     // If there is no user, clean up any old listeners from a previous session and stop.
     if (!user) {
@@ -608,7 +608,7 @@ await setDoc(userRef, {
       }
     };
   }, [user, fetchChecklists, fetchMyListings, fetchCommunityStandards, fetchWeeklySummary]); // Re-run when user changes
-*/
+
 
 // --- Your other useEffect for chat scrolling remains the same ---
 useEffect(() => {
