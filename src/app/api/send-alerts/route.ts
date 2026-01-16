@@ -6,7 +6,7 @@ import * as nodemailer from 'nodemailer';
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
-  console.log("🚀 Alert System: Job Started");
+  console.log("🚀 Alert System: Job Started v2 (Cache Buster)");
 
   // 1. Security Check
   const authHeader = request.headers.get('authorization');
