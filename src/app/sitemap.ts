@@ -1,71 +1,37 @@
 import { MetadataRoute } from 'next';
-// Use the ADMIN SDK for build-time data fetching to bypass security rules
-import { db } from '@/lib/firebase-admin';
 
 const URL = 'https://qcval.seosiri.com';
 
-/**
- * Fetches documents from a Firestore collection and maps them to sitemap entries.
- * This is a helper function to keep our code DRY (Don't Repeat Yourself).
- */
-async function fetchCollection(
-    collectionName: string, 
-    pathPrefix: string,
-    priority: number,
-    changeFrequency: 'weekly' | 'monthly' | 'yearly'
-): Promise<MetadataRoute.Sitemap> {
-    try {
-const snapshot = await db.collection(collectionName).limit(1000).get();
-        return snapshot.docs.map(doc => {
-            const data = doc.data();
-            const lastModified = data.updatedAt?.toDate() || data.createdAt?.toDate() || new Date();
-            return {
-                url: `${URL}/${pathPrefix}/${doc.id}`,
-                lastModified: lastModified.toISOString(),
-                changeFrequency,
-                priority,
-            };
-        });
-    } catch (error) {
-        console.error(`Failed to fetch sitemap data for ${collectionName}:`, error);
-        return []; // Return empty array on error to prevent build failure
-    }
-}
-
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  // --- 1. STATIC PAGES ---
-  // These are the core pages of your site.
+  // --- FINAL, FULLY STATIC SITEMAP ---
+  // This version performs ZERO Firestore reads during the Vercel build process.
+  // This ensures 100% stable deployments on the free tier.
+  // Dynamic pages will be discovered by search engines through internal links.
+
   const staticRoutes = [
-    '/', '/marketplace', '/press', '/faq', '/standards', 
-    '/about', '/legal/terms', '/legal/privacy', '/legal/disclaimer', 
-    '/auth', '/analytics', '/analysis'
+    '/',                // Homepage
+    '/marketplace',     // Public marketplace listings overview
+    '/press',           // Press releases/blog overview page
+    '/faq',             // Frequently asked questions page
+    '/standards',       // Standards hub overview
+    '/about',           // About Us page
+    '/legal/terms',     // Legal Terms of Service
+    '/legal/privacy',   // Privacy Policy
+    '/legal/disclaimer',// Liability Disclaimer
+    '/auth',            // Authentication (Login/Signup) page
+    '/analytics',       // Analytics page (if accessible without login/dynamic data)
+    '/analysis',        // Analysis page (if accessible without login/dynamic data)
+    '/press/create',    // Page for creating new press releases (important entry point)
+    '/dashboard'        // Main user dashboard (important for internal linking/discovery)
   ].map((route) => ({
     url: `${URL}${route}`,
-    lastModified: new Date().toISOString(),
-    changeFrequency: 'weekly' as const,
-    priority: route === '/' ? 1.0 : 0.8,
+    lastModified: new Date().toISOString(), // Last deployment date, suitable for static pages
   }));
 
-  // --- 2. DYNAMIC PAGES (Fetched from Firestore) ---
-  // Fetch all collections in parallel for maximum speed.
-  const [
-    reportRoutes,
-    pressRoutes,
-    groupRoutes,
-    profileRoutes // <-- NEWLY ADDED
-  ] = await Promise.all([
-    fetchCollection('checklists', 'report', 0.7, 'yearly'),
-    fetchCollection('press_releases', 'press', 0.6, 'monthly'),
-    fetchCollection('market_groups', 'marketplace', 0.9, 'weekly'),
-    fetchCollection('users', 'profile', 0.5, 'yearly'), // <-- NEWLY ADDED
-  ]);
+  // All dynamic content (individual reports, profiles, market groups, press releases)
+  // will be discovered by Google's crawler by following the links rendered on the
+  // '/marketplace', '/press', and '/dashboard' pages. This is a common and effective
+  // strategy for dynamic content when build-time fetching is problematic.
 
-  // --- 3. COMBINE ALL ROUTES ---
-  return [
-    ...staticRoutes, 
-    ...reportRoutes, 
-    ...pressRoutes, 
-    ...groupRoutes,
-    ...profileRoutes // <-- NEWLY ADDED
-  ];
+  return staticRoutes;
 }
