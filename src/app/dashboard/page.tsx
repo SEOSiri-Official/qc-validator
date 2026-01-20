@@ -301,6 +301,26 @@ const unsubscribeFromChecklistsRef = useRef<(() => void) | undefined>(undefined)
 
  // --- NEW STATE for Meta Tag Verification ---
   const [verificationCode, setVerificationCode] = useState<string | null>(null);
+               // --- UNIFIED MANUAL DATA REFRESH HANDLER ---
+  const handleManualRefresh = async () => {
+    if (!user) {
+      alert("Please log in to refresh data.");
+      return;
+    }
+    setLoading(true); // Show loading state while fetching
+    try {
+      await fetchChecklists(user.uid, user.email);
+      await fetchMyListings(user.uid);
+      await fetchCommunityStandards();
+      await fetchWeeklySummary(user.uid); // Fetch summary data manually
+      alert("Data refreshed successfully!");
+    } catch (error) {
+      console.error("Error during manual refresh:", error);
+      alert("Failed to refresh data. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
   // --- QC LOGIC HELPER ---
   const getQCStatus = (checklist: any) => {
     // Default to 100 if no specific threshold was set on the checklist
@@ -532,7 +552,7 @@ const fetchChecklists = useCallback((userId: string, userEmail: string | null) =
   }, [router]);
 
   // --- EFFECT 2: DATA FETCHER (Reacts to user changes) ---
-  
+  /*
   useEffect(() => {
     // If there is no user, clean up any old listeners from a previous session and stop.
     if (!user) {
@@ -609,7 +629,7 @@ await setDoc(userRef, {
     };
   }, [user, fetchChecklists, fetchMyListings, fetchCommunityStandards, fetchWeeklySummary]); // Re-run when user changes
 
-
+*/
 // --- Your other useEffect for chat scrolling remains the same ---
 useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -1697,13 +1717,40 @@ if (loading) return (
 
 
           {/* COMPLETED REPORTS SECTION */}
- <h2 className="font-bold text-gray-900 text-lg flex items-center gap-2 mt-8">
-            <span>{appMode === 'seller' ? '📋 My QC Projects' : '✅ Pending Approvals'}</span>
-          </h2>
-                    {savedChecklists.length === 0 && (
+ {/* --- COMPLETED REPORTS SECTION (UPDATED) --- */}
+          <div className="flex justify-between items-center mt-8 mb-4"> {/* Added flex container */}
+            <h2 className="font-bold text-gray-900 text-lg flex items-center gap-2">
+                <span>{appMode === 'seller' ? '📋 My QC Projects' : '✅ Pending Approvals'}</span>
+                {/* Only show count if loaded, otherwise show message */}
+                {savedChecklists.length > 0 && <span className="text-sm text-gray-500">({savedChecklists.length} loaded)</span>}
+            </h2>
+            <button
+                onClick={handleManualRefresh} // Calls the new unified handler
+                className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-indigo-700 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={loading} // Disable if currently loading
+            >
+                {loading ? <span className="animate-spin">🔄</span> : '🔄 Refresh Data'}
+            </button>
+          </div>
+          
+          {/* --- ORIGINAL EMPTY STATE (Now handles "No reports generated yet" and "No projects loaded") --- */}
+          {savedChecklists.length === 0 && !loading && (
             <div className="text-center py-12 bg-white rounded-xl border border-dashed border-gray-300">
-              <p className="text-gray-400 mb-2">No reports generated yet.</p>
-              <p className="text-xs text-gray-300">Create a new project on the left to get started.</p>
+              <p className="text-gray-400 mb-2">
+                {/* This message dynamically changes based on initial state vs. user has refreshed */}
+                {savedChecklists.length === 0 && user && !loading && "No projects loaded. Click 'Refresh Data' to view your projects."}
+                {savedChecklists.length === 0 && !user && !loading && "No reports generated yet. Create a new project on the left to get started."}
+              </p>
+              <p className="text-xs text-gray-400">This helps manage your Firebase reads.</p> {/* Added context */}
+            </div>
+          )}
+          
+          {/* --- LOADING INDICATOR (New) --- */}
+          {loading && ( // Show a loading indicator when data is being fetched
+             <div className="text-center py-12 bg-white rounded-xl border border-dashed border-gray-300">
+                <p className="text-gray-500 text-sm flex items-center justify-center gap-2 animate-pulse">
+                    <span className="animate-spin">🔄</span> Loading projects...
+                </p>
             </div>
           )}
 
@@ -1742,6 +1789,7 @@ if (loading) return (
                       : new Date(listing.lastMaintainedAt);
                   isStale = lastMaintainedDate < cutoff;
               }
+
               // --- 2. START RENDERING ---
               return (
             <div key={list.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-6">

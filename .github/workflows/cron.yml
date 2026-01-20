@@ -2,8 +2,8 @@ name: "QC Validator Scheduled Jobs"
 
 on:
   schedule:
-    # This now runs once every hour
-    - cron: "0 * * * *"
+    # Runs once a day: at 10:00 UTC (Early morning Americas, mid-day Asia)
+    - cron: "0 10 * * *"
   workflow_dispatch:
 
 jobs:
