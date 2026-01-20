@@ -350,16 +350,16 @@ const unsubscribeFromChecklistsRef = useRef<(() => void) | undefined>(undefined)
 
     try {
         // Get the current user's Firebase Authentication token
-        const token = await user.getIdToken();
 
-        const response = await fetch('/api/verify-domain', {
-            method: 'POST',
-            headers: { 
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}` // Send the token for server-side verification
-            },
-            body: JSON.stringify({ domain: domain }) // Only send the domain
-        });
+      const token = await user.getIdToken(); // Get the current user's Firebase Authentication token
+    const response = await fetch('/api/verify-domain', {
+        method: 'POST',
+        headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}` // NEW: Send the token for server-side verification
+        },
+        body: JSON.stringify({ domain: domain }) // NEW: Only send the domain, userId is derived from token
+    });
 
         const result = await response.json();
 
