@@ -1,39 +1,33 @@
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/firebase-admin'; // Firestore Admin SDK
-import { getAuth, DecodedIdToken } from 'firebase-admin/auth'; // Firebase Admin Auth SDK
-import * as cheerio from 'cheerio'; // For robust HTML parsing
+import { db } from '@/lib/firebase-admin';
+import { getAuth, DecodedIdToken } from 'firebase-admin/auth';
+import * as cheerio from 'cheerio';
 
-// Mark as dynamic to prevent caching issues with external HTTP requests
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
   try {
-    // --- 1. SERVER-SIDE AUTHENTICATION (From your EXISTING code) ---
+    // --- 1. SECURE AUTHENTICATION ---
     const idToken = request.headers.get('authorization')?.split('Bearer ')[1];
     if (!idToken) {
-      console.error("Verification API: Unauthorized - No token provided");
-      return new Response('Unauthorized: No token provided', { status: 401 });
+      return NextResponse.json({ success: false, message: "Unauthorized: No token provided" }, { status: 401 });
     }
 
     let decodedToken: DecodedIdToken;
     try {
       decodedToken = await getAuth().verifyIdToken(idToken);
     } catch (error) {
-      console.error("Verification API: Token verification failed:", error);
-      return new Response('Unauthorized: Invalid token', { status: 401 });
+      return NextResponse.json({ success: false, message: "Unauthorized: Invalid token" }, { status: 401 });
     }
     
-    // SECURE: Use the UID from the verified token, NOT from the client's request body.
     const userId = decodedToken.uid; 
-    
-    // --- Get domain from request body ---
     const { domain } = await request.json();
 
     if (!domain) {
       return NextResponse.json({ success: false, message: "Domain is required." }, { status: 400 });
     }
 
-    // 1. Fetch the user's expected verification code from Firestore (using Admin SDK)
+    // --- 2. FETCH EXPECTED CODE ---
     const userRef = db.collection('users').doc(userId); 
     const userSnap = await userRef.get();
     if (!userSnap.exists) {
@@ -43,47 +37,77 @@ export async function POST(request: Request) {
     const expectedCode = userData?.verificationCode;
 
     if (!expectedCode) {
-      return NextResponse.json({ success: false, message: "No verification code generated for this user." }, { status: 400 });
+      return NextResponse.json({ success: false, message: "No verification code generated." }, { status: 400 });
     }
 
-    // 2. Construct the URL to check
-    let urlToCheck = domain;
-    if (!urlToCheck.startsWith('http://') && !urlToCheck.startsWith('https://')) {
-      urlToCheck = `https://${urlToCheck}`; // Always default to HTTPS
+    // --- 3. ROBUST URL STRATEGY ---
+    // Clean the input to get the base domain
+    let cleanInput = domain.toLowerCase().trim();
+    cleanInput = cleanInput.replace(/^https?:\/\//, '').replace(/\/$/, '');
+
+    // Generate candidates to check. Order matters (HTTPS preferred).
+    // This solves the issue where seosiri.com fails but www.seosiri.com works.
+    const candidates = [
+        `https://${cleanInput}`,
+        `https://www.${cleanInput}`,
+        `http://${cleanInput}`, 
+        `http://www.${cleanInput}`
+    ];
+
+    // Remove duplicates (e.g. if user typed www.seosiri.com, don't check it twice)
+    const urlsToTry = [...new Set(candidates)];
+    
+    console.log(`Checking variations for: ${cleanInput}`);
+
+    let verified = false;
+    let successfulUrl = '';
+
+    // --- 4. ATTEMPT FETCH ON EACH CANDIDATE ---
+    for (const url of urlsToTry) {
+        try {
+            console.log(`Trying: ${url}...`);
+            // Set a short timeout so we don't wait forever on a broken link
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 4000); // 4 second timeout per try
+
+            const response = await fetch(url, { 
+                redirect: 'follow', 
+                signal: controller.signal 
+            });
+            clearTimeout(timeoutId);
+
+            if (response.ok) {
+                const html = await response.text();
+                const $ = cheerio.load(html);
+                const metaTag = $(`meta[name="qc-validator-verification"]`);
+                const foundCode = metaTag.attr('content');
+
+                if (foundCode && foundCode === expectedCode) {
+                    verified = true;
+                    successfulUrl = url;
+                    break; // Stop the loop, we found it!
+                }
+            }
+        } catch (err) {
+            console.log(`Failed to reach ${url}, trying next candidate...`);
+            // Continue to next URL in loop
+        }
     }
 
-    console.log(`Verifying meta tag on: ${urlToCheck} for user: ${userId}`); // Added logging for debugging
-
-    // 3. Fetch the website's HTML (robustly)
-const response = await fetch(urlToCheck, { redirect: 'follow' }); // Removed timeout as it's not supported by Node.js fetch // Follow redirects, 8s timeout
-    if (!response.ok) {
-        console.error(`Failed to fetch ${urlToCheck}: ${response.status} ${response.statusText}`);
-        return NextResponse.json({ success: false, message: `Failed to access ${domain}. Status: ${response.status}` }, { status: response.status });
-    }
-
-    const html = await response.text();
-
-    // 4. Parse HTML with Cheerio and find the meta tag
-    const $ = cheerio.load(html);
-    const metaTag = $(`meta[name="qc-validator-verification"]`);
-    const foundCode = metaTag.attr('content');
-
-    console.log(`Expected Code: ${expectedCode}`);
-    console.log(`Found Code: ${foundCode || 'Not Found'}`);
-
-    // 5. Compare codes
-    if (foundCode && foundCode === expectedCode) {
-      // 6. Update user's verification status (using Admin SDK)
-      await userRef.update({ isDomainVerified: true, verifiedDomain: domain, verificationCode: null });
-      console.log(`✅ User ${userId} domain ${domain} verified successfully.`);
-      return NextResponse.json({ success: true, message: "Domain verified successfully!" });
+    // --- 5. RESULT ---
+    if (verified) {
+      await userRef.update({ 
+          isDomainVerified: true, 
+          verifiedDomain: cleanInput, 
+          verificationCode: null 
+      });
+      return NextResponse.json({ success: true, message: `Domain verified successfully via ${successfulUrl}!` });
     } else {
-      console.log(`❌ User ${userId} verification failed: tag not found or code mismatch.`);
-      return NextResponse.json({ success: false, message: "Verification meta tag not found or code mismatch." }, { status: 400 });
+      return NextResponse.json({ success: false, message: `Could not find meta tag on ${cleanInput} or www.${cleanInput}.` }, { status: 400 });
     }
 
   } catch (error: any) {
-    console.error("💥 Critical error during domain verification API:", error);
-    return NextResponse.json({ success: false, message: `An unexpected server error occurred: ${error.message}` }, { status: 500 });
+    console.error("Verification Error:", error);
+    return NextResponse.json({ success: false, message: `Server Error: ${error.message}` }, { status: 500 });
   }
 }
