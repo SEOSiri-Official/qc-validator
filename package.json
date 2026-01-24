@@ -40,6 +40,6 @@
     "typescript": "^5"
   },
   "overrides": {
-    "undici": "5.28.4"
+    "undici": "6.19.2"
   }
 }
