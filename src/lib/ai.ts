@@ -6,6 +6,8 @@ const PROVIDERS = {
   'Google AI': { model: 'gemini-1.5-pro-latest', apiUrl: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro-latest:generateContent' },
   'Anthropic': { model: 'claude-3-opus-20240229', apiUrl: 'https://api.anthropic.com/v1/messages' },
 };
+
+// This export is crucial for the Analytics Page dropdown
 export type ProviderName = keyof typeof PROVIDERS;
 
 // --- 2. CORE AI HELPER FUNCTION ---
