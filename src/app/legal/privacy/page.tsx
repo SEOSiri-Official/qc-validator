@@ -1,88 +1,135 @@
-// src/app/legal/privacy/page.tsx
 import Link from "next/link";
 
 export default function PrivacyPage() {
-  const lastUpdated = "December 10, 2025"; // Update this date when you make changes
+  // 🚨 IMPORTANT: UPDATE THIS DATE WHEN YOU MAKE ANY CHANGES TO THE CONTENT
+  const lastUpdated = "January 28, 2026"; 
+  
+  // 🚨 IMPORTANT: Confirm your Firebase/Firestore region and update this placeholder
+  const FIRESTORE_REGION = "us-central1 (or your configured region)"; 
 
   return (
     <div className="bg-gray-50 font-sans">
       <div className="max-w-4xl mx-auto py-16 px-6">
-        <div className="bg-white p-8 md:p-12 rounded-lg shadow-md border border-gray-200">
-          <div className="mb-8 border-b pb-4">
-            <h1 className="text-3xl font-bold text-gray-900">Privacy Policy</h1>
-            <p className="mt-1 text-sm text-gray-500">Last Updated: {lastUpdated}</p>
-          </div>
+        <div className="bg-white p-8 md:p-12 rounded-lg shadow-2xl border border-gray-200">
+          <header className="mb-8 border-b pb-4">
+            <h1 className="text-3xl font-extrabold text-gray-900">Data Compliance & Privacy</h1>
+            <p className="mt-1 text-sm text-gray-500">
+              **Last Updated:** {lastUpdated} | **Service:** QCVal (qcval.seosiri.com)
+            </p>
+          </header>
 
-          <div className="prose prose-indigo max-w-none text-gray-700 space-y-6">
+          <article className="prose prose-indigo max-w-none text-gray-700 space-y-6">
             <p>
-              Welcome to QC Validator ("we," "us," or "our"). We are committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our web application (the "Service"). Please read this policy carefully.
+              This page explains how QCVal handles data, what we collect, why we collect it, where it’s stored, who we share it with (our processors/sub-processors), and what rights you have.
+            </p>
+            <p className="border-l-4 border-indigo-400 pl-4 py-2 bg-indigo-50 text-sm italic">
+                QCVal is a web application that helps users **create, manage, and verify quality control checklists** for international trade and supply chain management. We designed QCVal using privacy-by-default principles: collect the minimum data needed to operate the service, keep it secure, and give you control.
             </p>
 
-            <h2 className="text-xl font-bold text-gray-900 pt-4">1. Information We Collect</h2>
-            <p>We may collect information about you in a variety of ways. The information we may collect via the Service includes:</p>
+            <h2 className="text-xl font-bold text-gray-900 pt-4">1. Data We Collect (Inventory)</h2>
+            
+            <h3 className="text-lg font-semibold text-gray-800 pt-2">A) Data you provide</h3>
             <ul>
               <li>
-                <strong>Personal Data:</strong> Personally identifiable information, such as your email address, that you voluntarily give to us when you register with the Service.
+                <strong>Account Data:</strong> Email address, unique Firebase User ID (UID), and basic profile name (if provided).
               </li>
               <li>
-                <strong>Project Data:</strong> All data you create and upload within the Service, including but not limited to QC checklist titles, parameters, requirements, uploaded images ("evidence"), and chat messages.
+                <strong>Project Data:</strong> All user-generated content, including Checklist titles, parameters, scores, standards, **Seller UID**, **Buyer UID** or **Buyer Email**, and chat messages.
               </li>
               <li>
-                <strong>Derivative Data:</strong> Information our servers automatically collect when you access the Service, such as your IP address, browser type, and timestamps, which is standard for most web services.
+                <strong>AI Credentials (BYOK):</strong> **Your provided OpenAI / Gemini / Anthropic API Keys.** These keys are **NOT stored in our database (Firestore) or server**. They are stored only in your browser's **Local Storage** and sent directly to the AI vendor from your browser.
+              </li>
+              <li>
+                <strong>Endorsements:</strong> Your UID is stored when you endorse a community standard to track integrity.
               </li>
             </ul>
 
-            <h2 className="text-xl font-bold text-gray-900 pt-4">2. Use of Your Information</h2>
-            <p>Having accurate information about you permits us to provide you with a smooth, efficient, and customized experience. Specifically, we use information collected about you via the Service to:</p>
+            <h3 className="text-lg font-semibold text-gray-800 pt-2">B) Data collected automatically</h3>
             <ul>
-              <li>Create and manage your account.</li>
-              <li>Provide the core functionality of creating, sharing, and managing QC checklists between you and your designated partners (Seller/Buyer).</li>
-              <li>Enable user-to-user communications within the platform's chat feature.</li>
-              <li>Monitor and analyze usage and trends to improve your experience with the Service.</li>
+              <li>
+                <strong>Log Data:</strong> IP address, device/browser type, pages visited, timestamps, and error logs (collected by Firebase and Vercel for security).
+              </li>
+              <li>
+                <strong>Security Telemetry:</strong> Data used to prevent abuse, troubleshoot, and monitor reliability.
+              </li>
+            </ul>
+            
+            <h2 className="text-xl font-bold text-gray-900 pt-4">2. Why We Collect Data (Purposes)</h2>
+            <p>We process data to:</p>
+            <ul>
+              <li>Provide and operate all core QCVal features (Checklist creation, sharing, management).</li>
+              <li>Authenticate users, manage accounts, and maintain secure sessions.</li>
+              <li>Enable features like AI-powered suggestions and translation using your provided API keys.</li>
+              <li>Monitor reliability, prevent fraud/abuse, and enforce rate limits.</li>
+              <li>Calculate your in-app performance metrics (Pipeline, Conversion, Health Score).</li>
+              <li>Respond to support requests and meet legal obligations.</li>
             </ul>
 
-            <h2 className="text-xl font-bold text-gray-900 pt-4">3. Disclosure of Your Information</h2>
-            <p>We do not sell, rent, or lease your personal data to third parties. We may share information we have collected about you in certain situations:</p>
+            <h2 className="text-xl font-bold text-gray-900 pt-4">3. Legal Bases (GDPR / UK GDPR)</h2>
+            <p>For users in the EEA/UK, we rely on:</p>
+            <ul>
+                <li><strong>Contract Necessity:</strong> To fulfill the service you sign up for (account management, storing your projects).</li>
+                <li><strong>Legitimate Interests:</strong> Security, fraud prevention, reliability monitoring, and service improvement.</li>
+                <li><strong>Consent:</strong> For future non-essential cookies or analytics (if implemented).</li>
+            </ul>
+            
+            <h2 className="text-xl font-bold text-gray-900 pt-4">4. Where Data Is Stored & International Transfers</h2>
             <ul>
                 <li>
-                    <strong>By Law or to Protect Rights:</strong> If we believe the release of information about you is necessary to respond to legal process, to investigate or remedy potential violations of our policies, or to protect the rights, property, and safety of others.
+                    <strong>Primary Database (Firestore):</strong> Data is stored in the Google Cloud region: **{FIRESTORE_REGION}**.
                 </li>
                 <li>
-                    <strong>Third-Party Service Providers:</strong> We use Google Firebase as our backend provider for authentication, database (Firestore), and hosting. Your data is stored on their secure servers.
+                    <strong>Hosting (Vercel):</strong> Hosting and edge delivery may process requests globally for speed.
                 </li>
-                 <li>
-                    <strong>AI Translation Feature:</strong> If you provide your own API key (BYOK) for the AI translation feature, the text you submit for translation is sent to the OpenAI API for processing. We do not store your API key on our servers; it is stored only in your browser's local storage.
+                <li>
+                    If personal data is transferred internationally (e.g., outside the EEA/UK), we rely on appropriate safeguards such as **Standard Contractual Clauses (SCCs)** implemented by our vendors.
                 </li>
             </ul>
 
-            <h2 className="text-xl font-bold text-gray-900 pt-4">4. Data Security</h2>
-            <p>
-              We use administrative, technical, and physical security measures to help protect your personal information. While we have taken reasonable steps to secure the personal information you provide to us, please be aware that despite our efforts, no security measures are perfect or impenetrable.
-            </p>
-            
-            <h2 className="text-xl font-bold text-gray-900 pt-4">5. Your Data Protection Rights (GDPR)</h2>
-            <p>If you are a resident of the European Economic Area (EEA), you have certain data protection rights. We aim to take reasonable steps to allow you to correct, amend, delete, or limit the use of your Personal Data.</p>
+            <h2 className="text-xl font-bold text-gray-900 pt-4">5. Our Sub-Processors (Vendors)</h2>
+            <p>We do not sell your data. We share it only with necessary third parties to operate the service:</p>
             <ul>
-                <li><strong>The right to access, update or to delete</strong> the information we have on you.</li>
-                <li><strong>The right of rectification.</strong></li>
-                <li><strong>The right to object.</strong></li>
-                <li><strong>The right of restriction.</strong></li>
-                <li><strong>The right to data portability.</strong></li>
-                <li><strong>The right to withdraw consent.</strong></li>
+                <li>
+                    <strong>Hosting & Delivery:</strong> Vercel (Web hosting, CDN/edge)
+                </li>
+                <li>
+                    <strong>Database & Auth:</strong> Google Firebase / Firestore (Authentication and data storage)
+                </li>
+                <li>
+                    <strong>AI Services:</strong> OpenAI, Google AI, Anthropic (Process user-submitted prompts for suggestions/translation, but **do not store your API Key**).
+                </li>
+                <li>
+                    <strong>Source Control:</strong> GitHub (Code repository, build logs).
+                </li>
             </ul>
-             <p>If you wish to be informed what Personal Data we hold about you or if you want it to be removed from our systems, please contact us at <a href="mailto:info@seosiri.com">info@seosiri.com</a>.</p>
+
+            <h2 className="text-xl font-bold text-gray-900 pt-4">6. Security, Retention & Deletion</h2>
+            <ul>
+                <li>
+                    <strong>Security:</strong> We use industry-standard security: **Encryption in transit** (HTTPS/TLS), **Encryption at rest** (provided by Google Cloud/Firebase), and strict access control.
+                </li>
+                <li>
+                    <strong>Retention:</strong> We retain data as long as your account is active. Logs are retained for a limited period (**60 days**) unless needed for security investigations.
+                </li>
+                <li>
+                    <strong>Deletion:</strong> When you delete content or your account, we delete or de-identify data within a reasonable timeframe (max **30 days**), subject to backups rotating out.
+                </li>
+            </ul>
             
-            <h2 className="text-xl font-bold text-gray-900 pt-4">6. Contact Us</h2>
+            <h2 className="text-xl font-bold text-gray-900 pt-4">7. Your Rights & Choices</h2>
+            <p>Depending on your location (e.g., California, EEA/UK), you have rights including Access, Correction, Deletion, and Portability. We commit to fulfilling these rights.</p>
+            
+            <h2 className="text-xl font-bold text-gray-900 pt-4">8. CCPA/CPRA-Style Notice (California)</h2>
+            <p>We do not sell or share personal information for cross-context behavioral advertising.</p>
+
+            <h2 className="text-xl font-bold text-gray-900 pt-4">9. Contact Us</h2>
+            <p>To exercise your rights, or for privacy, compliance, or security questions, please contact us:</p>
             <p>
-              If you have questions or comments about this Privacy Policy, please contact us at:
-            </p>
-            <p>
-              SEOSiri<br />
               Email: <a href="mailto:info@seosiri.com">info@seosiri.com</a>
             </p>
-          </div>
+          </article>
           <div className="mt-12 text-center">
-            <Link href="/" className="text-sm font-semibold text-indigo-600 hover:indigo-500">← Back to Home</Link>
+            <Link href="/" className="text-sm font-semibold text-indigo-600 hover:text-indigo-500">← Back to Home</Link>
           </div>
         </div>
       </div>
