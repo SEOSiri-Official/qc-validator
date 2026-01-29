@@ -4,9 +4,10 @@ import { db } from '@/lib/firebase';
 import { 
   collection, addDoc, getDocs, query, where, 
   doc, updateDoc, onSnapshot, arrayUnion, serverTimestamp,
-  increment, setDoc
+  increment, setDoc, runTransaction, arrayRemove // arrayRemove is crucial for toggling
 } from 'firebase/firestore';
 import { Checklist, ChatMessage, Standard, QCType, BusinessModel, ChecklistItem } from '@/lib/knowledgeBase';
+
 
 // --- SUBSCRIBE (REAL-TIME) FUNCTIONS ---
 
@@ -19,6 +20,7 @@ export const subscribeToCommunityStandards = (onUpdate: (standards: any[]) => vo
   const standardsQuery = query(collection(db, "nationalStandards"));
   return onSnapshot(standardsQuery, (snapshot) => {
     const standardsList: any[] = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    // Sorting by endorsement count descending
     standardsList.sort((a, b) => (b.endorsementCount || 0) - (a.endorsementCount || 0));
     onUpdate(standardsList);
   });
@@ -112,12 +114,40 @@ export const createNationalStandard = async (standardId: string, data: any) => {
 };
 
 /**
- * Increments the endorsement count for a national standard.
+ * Increments/Decrements the endorsement count for a national standard using a transaction.
+ * Also toggles the user's UID in the 'endorsedBy' array.
  */
-export const endorseStandard = async (standardId: string) => {
+export const endorseStandard = async (standardId: string, userId: string) => { // <-- Now requires userId
     const standardRef = doc(db, "nationalStandards", standardId);
-    await updateDoc(standardRef, {
-        endorsementCount: increment(1)
+
+    return runTransaction(db, async (transaction) => {
+        const standardDoc = await transaction.get(standardRef);
+
+        if (!standardDoc.exists()) {
+            throw new Error("Standard does not exist in the database.");
+        }
+
+        const data = standardDoc.data();
+        const endorsedBy: string[] = data?.endorsedBy || [];
+        const currentCount: number = data?.endorsementCount || 0;
+        
+        const hasEndorsed = endorsedBy.includes(userId);
+
+        if (hasEndorsed) {
+            // User has endorsed -> Remove endorsement
+            transaction.update(standardRef, {
+                endorsementCount: currentCount - 1,
+                endorsedBy: arrayRemove(userId)
+            });
+            return { endorsed: false, newCount: currentCount - 1 };
+        } else {
+            // User has not endorsed -> Add endorsement
+            transaction.update(standardRef, {
+                endorsementCount: currentCount + 1,
+                endorsedBy: arrayUnion(userId)
+            });
+            return { endorsed: true, newCount: currentCount + 1 };
+        }
     });
 };
 

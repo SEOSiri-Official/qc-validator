@@ -3,10 +3,11 @@
 import { useState, useEffect, useMemo } from 'react';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
-import { collection, query, getDocs, doc, runTransaction, setDoc, arrayUnion, onSnapshot } from 'firebase/firestore';
+import { collection, query, getDocs, doc, runTransaction, setDoc, arrayUnion, onSnapshot, serverTimestamp } from 'firebase/firestore';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import Tooltip from '@/components/Tooltip'; // Ensure you have this component
+import { endorseStandard } from '@/lib/firestore'; 
 
 // --- TYPE DEFINITIONS ---
 interface StandardParam {
@@ -120,6 +121,7 @@ export default function StandardsHubPage() {
     const standardRef = doc(db, 'nationalStandards', standardId);
 
     try {
+      await endorseStandard(standardId, user.uid);
         await runTransaction(db, async (transaction) => {
             const docSnap = await transaction.get(standardRef);
 
@@ -283,41 +285,60 @@ export default function StandardsHubPage() {
   );
 }
 
-// --- CREATOR MODAL COMPONENT ---
+// --- Standard Creator Component (Fixed to include serverTimestamp) ---
 function StandardCreator({ user, onClose }: { user: User; onClose: () => void; }) {
   const [countryName, setCountryName] = useState('');
+  const [countryCode, setCountryCode] = useState('');
   const [authorityName, setAuthorityName] = useState('');
   const [authorityUrl, setAuthorityUrl] = useState('');
   const [params, setParams] = useState<StandardParam[]>([{ cat: '', hint: '' }]);
   const [isSaving, setIsSaving] = useState(false);
 
+  // We need to import serverTimestamp for this to work correctly
+  // (Assuming it's imported at the top of the file, which it is: `import { ..., setDoc, arrayUnion, onSnapshot, getDoc } from 'firebase/firestore';`)
+
+  const addParam = () => setParams([...params, { cat: '', hint: '' }]);
+  
+  const updateParam = (index: number, field: keyof StandardParam, value: string) => {
+    const newParams = [...params];
+    newParams[index][field] = value;
+    setParams(newParams);
+  };
+  
+  const removeParam = (index: number) => {
+      if (params.length > 1) {
+          setParams(params.filter((_, i) => i !== index));
+      }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!countryName || !authorityName || params.some(p => !p.cat)) {
-      return alert("Please fill in Country, Authority, and at least one Requirement.");
+    if (!countryName || !countryCode || !authorityName || params.some(p => !p.cat)) {
+      alert("Please fill all required fields: Country Name, Country Code, Authority Name, and at least one Parameter Category.");
+      return;
     }
-    
     setIsSaving(true);
     try {
-        // Create a URL-friendly ID (e.g., "Saudi Arabia" -> "saudi-arabia")
-        const docId = countryName.toLowerCase().trim().replace(/\s+/g, '-');
-        
-        await setDoc(doc(db, 'nationalStandards', docId), {
-            countryName, 
-            authorityName, 
-            authorityUrl, 
-            params: params.filter(p => p.cat),
-            createdBy: user.uid, 
-            creatorEmail: user.email, 
-            endorsementCount: 1,
+        const standardData = {
+            countryName,
+            authorityName,
+            authorityUrl: authorityUrl || '',
+            params: params.filter(p => p.cat.trim() !== ''),
+            createdBy: user.uid,
+            creatorEmail: user.email,
+            endorsementCount: 1, 
             endorsedBy: [user.uid],
-            createdAt: new Date()
-        });
-        alert("Thank you! Standard added to the Hub.");
+            createdAt: serverTimestamp() // <-- FIXED: Added serverTimestamp for auditing
+        };
+        
+        const docRef = doc(db, 'nationalStandards', countryCode.toUpperCase());
+        await setDoc(docRef, standardData);
+
+        alert("Standard published successfully!");
         onClose();
     } catch (error) {
+        alert("Error publishing standard.");
         console.error(error);
-        alert("Error creating standard.");
     } finally {
         setIsSaving(false);
     }
@@ -326,59 +347,64 @@ function StandardCreator({ user, onClose }: { user: User; onClose: () => void; }
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
       <motion.div 
-        initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }}
-        className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden"
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden"
       >
-        <div className="bg-gray-50 px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-            <h2 className="text-xl font-bold text-gray-800">Contribute Standard</h2>
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600">✕</button>
-        </div>
-        
-        <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+        <div className="p-6 border-b bg-gray-50 flex justify-between items-center">
           <div>
-            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Country / Region</label>
-            <input className="w-full border p-2 rounded-lg" placeholder="e.g. Brazil" value={countryName} onChange={e => setCountryName(e.target.value)} required />
+            <h2 className="text-xl font-bold text-gray-800">New Standard Contribution</h2>
+            <p className="text-sm text-gray-500">Add accurate data to help the global community.</p>
           </div>
-          
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Authority Name</label>
-                <input className="w-full border p-2 rounded-lg" placeholder="e.g. INMETRO" value={authorityName} onChange={e => setAuthorityName(e.target.value)} required />
-            </div>
-            <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Website (Optional)</label>
-                <input className="w-full border p-2 rounded-lg" placeholder="https://..." value={authorityUrl} onChange={e => setAuthorityUrl(e.target.value)} />
-            </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">✕</button>
+        </div>
+        <form onSubmit={handleSubmit} className="p-6 space-y-5 max-h-[70vh] overflow-y-auto">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div>
+                  <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Country Name</label>
+                  <input type="text" placeholder="e.g., Japan" value={countryName} onChange={e => setCountryName(e.target.value)} required className="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 py-2 px-3 border" />
+              </div>
+              <div>
+                  <label className="block text-xs font-bold text-gray-700 uppercase mb-1">2-Letter Country Code (ISO 3166-1)</label>
+                  <input type="text" placeholder="e.g., JP" value={countryCode} onChange={e => setCountryCode(e.target.value.toUpperCase())} maxLength={2} required className="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 py-2 px-3 border" />
+              </div>
+          </div>
+          <div>
+              <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Authority / Agency Name</label>
+              <input type="text" placeholder="e.g., Japanese Industrial Standards Committee" value={authorityName} onChange={e => setAuthorityName(e.target.value)} required className="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 py-2 px-3 border" />
+          </div>
+          <div>
+              <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Official Website (Optional)</label>
+              <input type="url" placeholder="https://www.jisc.go.jp/" value={authorityUrl} onChange={e => setAuthorityUrl(e.target.value)} className="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 py-2 px-3 border" />
           </div>
 
           <div className="pt-2">
-            <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Requirements / Certificates</label>
-            {params.map((p, i) => (
-                <div key={i} className="flex gap-2 mb-2">
-                    <input 
-                        className="flex-1 border p-2 rounded-lg text-sm" 
-                        placeholder="Requirement Name" 
-                        value={p.cat} 
-                        onChange={e => { const newP = [...params]; newP[i].cat = e.target.value; setParams(newP); }} 
-                        required 
-                    />
-                    <input 
-                        className="flex-1 border p-2 rounded-lg text-sm" 
-                        placeholder="Hint/Description" 
-                        value={p.hint} 
-                        onChange={e => { const newP = [...params]; newP[i].hint = e.target.value; setParams(newP); }} 
-                    />
+            <label className="block text-xs font-bold text-gray-700 uppercase mb-2">Requirements / Certifications</label>
+            <div className="space-y-3">
+                {params.map((param, index) => (
+                <div key={index} className="flex items-center gap-3">
+                    <span className="text-xs text-gray-400 w-4">{index + 1}.</span>
+                    <input type="text" placeholder="Certificate Name" value={param.cat} onChange={e => updateParam(index, 'cat', e.target.value)} required className="flex-1 border p-2 rounded-lg text-sm" />
+                    <input type="text" placeholder="Short description..." value={param.hint} onChange={e => updateParam(index, 'hint', e.target.value)} className="flex-1 border p-2 rounded-lg text-sm" />
+                    <button type="button" onClick={() => removeParam(index)} className="text-red-400 hover:text-red-600 transition-colors" disabled={params.length <= 1}>
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                        </svg>
+                    </button>
                 </div>
-            ))}
-            <button type="button" onClick={() => setParams([...params, { cat: '', hint: '' }])} className="text-xs font-bold text-indigo-600 hover:text-indigo-800 mt-1">
-                + Add Another Requirement
+                ))}
+            </div>
+            <button type="button" onClick={addParam} className="mt-3 text-indigo-600 hover:text-indigo-800 text-sm font-semibold flex items-center gap-1">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clipRule="evenodd" /></svg>
+                Add another requirement
             </button>
           </div>
-
-          <div className="flex justify-end gap-3 pt-4 border-t">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-gray-600 font-medium hover:bg-gray-100 rounded-lg">Cancel</button>
-            <button type="submit" disabled={isSaving} className="px-6 py-2 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 disabled:opacity-50">
-              {isSaving ? "Saving..." : "Publish to Hub"}
+          
+          <div className="flex justify-end gap-3 pt-6 border-t bg-gray-50 -mx-6 -mb-6 p-6">
+            <button type="button" onClick={onClose} className="px-5 py-2.5 text-sm font-semibold text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">Cancel</button>
+            <button type="submit" disabled={isSaving} className="px-5 py-2.5 text-sm font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 shadow-md transition-all disabled:opacity-70 disabled:cursor-wait">
+              {isSaving ? "Publishing..." : "Publish to Hub"}
             </button>
           </div>
         </form>
