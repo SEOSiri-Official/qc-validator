@@ -24,6 +24,7 @@ import OnboardingTour from '@/components/OnboardingTour';
 import WeeklySummaryModal from '@/components/WeeklySummaryModal';
 import ReferralSection from '@/components/ReferralSection';
 import DisputeModal from '@/components/DisputeModal';
+import ChecklistCard from '@/components/ChecklistCard';
 import SimpleSearch from '@/components/SimpleSearch';
 import { useEffect, useState, useRef, ChangeEvent, useCallback } from 'react';
 
