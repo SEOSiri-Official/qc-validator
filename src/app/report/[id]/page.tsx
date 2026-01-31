@@ -1,7 +1,9 @@
 import { notFound } from 'next/navigation';
-import { db } from '@/lib/firebase-admin'; // Ensure you have firebase-admin.ts set up
+import { db } from '@/lib/firebase-admin'; 
 import Link from 'next/link';
 import RequestCustomReport from '@/components/RequestCustomReport';
+import LogisticsFlow from '@/components/LogisticsFlow'; // <-- 1. NEW IMPORT
+
 export const dynamic = 'force-dynamic';
 
 // --- SERVER-SIDE DATA FETCHING ---
@@ -13,29 +15,36 @@ async function getReportData(id: string) {
     if (!reportSnap.exists) return null;
     
     const data = reportSnap.data();
+    
+    const toISO = (dateField: any) => {
+        if (!dateField) return null;
+        if (typeof dateField.toDate === 'function') return dateField.toDate().toISOString(); 
+        if (dateField instanceof Date) return dateField.toISOString(); 
+        if (typeof dateField === 'string') return dateField; 
+        return null;
+    };
 
-    // Serialize Dates to Strings (Crucial for passing to Client Components)
     const reportData: any = { 
         id: reportSnap.id, 
         ...data,
-        createdAt: data?.createdAt?.toDate().toISOString() || null,
-        meetingStartedAt: data?.meetingStartedAt?.toDate().toISOString() || null,
-        messages: [] // Don't pass chat history to public page for security
+        createdAt: toISO(data?.createdAt),
+        meetingStartedAt: toISO(data?.meetingStartedAt),
+        productionDate: data?.productionDate || null, 
+        packagingType: data?.packagingType || null,
+        qcStatusInternal: data?.qcStatusInternal || null,
+        evidenceDetail: data?.evidenceDetail || null,
+        messages: [] 
     };
 
-    // Fetch associated marketplace listing
-    const listingsQuery = db.collection('market_listings')
-        .where('checklistId', '==', id)
-        .limit(1);
-        
+    const listingsQuery = db.collection('market_listings').where('checklistId', '==', id).limit(1);
     const listingsSnap = await listingsQuery.get();
     
     if (!listingsSnap.empty) {
         const listingData = listingsSnap.docs[0].data();
         reportData.listing = {
             ...listingData,
-            listedAt: listingData.listedAt?.toDate().toISOString() || null,
-            lastMaintainedAt: listingData.lastMaintainedAt?.toDate().toISOString() || null
+            listedAt: toISO(listingData.listedAt),
+            lastMaintainedAt: toISO(listingData.lastMaintainedAt)
         };
     }
 
@@ -46,7 +55,6 @@ async function getReportData(id: string) {
   }
 }
 
-// --- DYNAMIC SEO METADATA ---
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
     const report = await getReportData(id);
@@ -84,22 +92,21 @@ export default async function PublicReportPage({ params }: { params: Promise<{ i
 
       <main className="max-w-4xl mx-auto py-8 px-4 md:px-6">
         
-        {/* REPORT CARD */}
         <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden mb-8">
             
-            {/* HEADER GRADIENT */}
+            {/* HEADER */}
             <div className="bg-gradient-to-r from-blue-600 to-indigo-700 p-6 text-white">
                 <h2 className="text-2xl md:text-3xl font-bold mb-3">{report.title}</h2>
                 <div className="flex flex-wrap gap-2 text-sm opacity-90">
                     <span className="bg-white/20 px-2 py-1 rounded flex items-center gap-1">🏢 {report.industry}</span>
                     <span className="bg-white/20 px-2 py-1 rounded flex items-center gap-1">📜 {report.standard}</span>
-                    <span>📅 {new Date(report.createdAt?.seconds * 1000).toUTCString().slice(0, 16)} (UTC)</span>
+                    <span>📅 {report.createdAt ? new Date(report.createdAt).toUTCString().slice(0, 16) : 'N/A'} (UTC)</span>
                 </div>
             </div>
             
             <div className="p-6">
                 {/* STATUS & VERIFIED BY */}
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4 border-b pb-6">
                     <div>
                         <p className="text-xs text-gray-500 uppercase font-bold tracking-wider mb-1">Verification Status</p>
                         <span className={`inline-flex items-center gap-2 font-bold px-4 py-2 rounded-full border ${score === 100 ? 'text-green-700 bg-green-50 border-green-200' : 'text-yellow-700 bg-yellow-50 border-yellow-200'}`}>
@@ -108,21 +115,53 @@ export default async function PublicReportPage({ params }: { params: Promise<{ i
                     </div>
                     <div className="md:text-right">
                         <p className="text-xs text-gray-500 uppercase font-bold tracking-wider mb-1">Verified By</p>
-                        <span className="font-medium text-indigo-600">
-                            {report.sellerEmail}
-                        </span>
+                        <Link href={`/profile/${report.uid}`} className="font-medium text-indigo-600 hover:underline flex items-center gap-1 md:justify-end">
+                             {report.sellerEmail} ↗
+                        </Link>
                     </div>
                 </div>
 
-<div className="text-right">
-    <p className="text-sm text-gray-500 uppercase font-bold">Verified By</p>
-    {/* This link now works! */}
-    <Link href={`/profile/${report.uid}`} className="font-medium text-indigo-600 hover:underline">
-        {report.sellerEmail}
-    </Link>
-</div>
+                {/* --- LOGISTICS DATA DISPLAY --- */}
+                {(report.packagingType || report.qcStatusInternal) && (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-5 mb-8">
+                        <h4 className="text-sm font-bold text-yellow-800 uppercase mb-3 flex items-center gap-2">
+                            📦 Logistics & Traceability Data
+                        </h4>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                            <div>
+                                <span className="block text-gray-500 text-xs">Final QC Status</span>
+                                <span className="font-semibold text-gray-900">{report.qcStatusInternal || 'N/A'}</span>
+                            </div>
+                            <div>
+                                <span className="block text-gray-500 text-xs">Packaging</span>
+                                <span className="font-semibold text-gray-900">{report.packagingType || 'N/A'}</span>
+                            </div>
+                            <div>
+                                <span className="block text-gray-500 text-xs">Production Date</span>
+                                <span className="font-semibold text-gray-900">{report.productionDate || 'N/A'}</span>
+                            </div>
+                             <div className="col-span-2 md:col-span-1">
+                                <span className="block text-gray-500 text-xs">Evidence Notes</span>
+                                <span className="font-semibold text-gray-900 italic truncate" title={report.evidenceDetail}>{report.evidenceDetail || 'None'}</span>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
-                {/* COMMERCIAL INFO (If Listed) */}
+                {/* --- 2. NEW LOGISTICS FLOWCHART (Public View) --- */}
+                {score === 100 && (
+                    <div className="mb-8 border-t border-gray-100 pt-6">
+                        <h4 className="text-sm font-bold text-gray-900 uppercase mb-4 flex items-center gap-2">
+                            🗺️ Chain of Custody & Delivery Protocol
+                        </h4>
+                        {/* We hardcode status to 'completed' for public reports to show the Success Flow */}
+                        <LogisticsFlow finalStatus="completed" qcStatus="PASS" />
+                    </div>
+                )}
+                {/* ------------------------------------------------ */}
+
+
+                {/* COMMERCIAL INFO */}
                 {report.listing && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8 bg-gray-50 p-4 rounded-xl border border-gray-100">
                         <div>
@@ -152,8 +191,6 @@ export default async function PublicReportPage({ params }: { params: Promise<{ i
                                     </span>
                                     <p className="font-semibold text-gray-900">{item.requirement}</p>
                                 </div>
-                                
-                                {/* Evidence Images */}
                                 <div className="flex gap-4 mt-2 md:mt-0">
                                     {item.evidenceBefore && (
                                         <div className="text-center">
@@ -175,10 +212,8 @@ export default async function PublicReportPage({ params }: { params: Promise<{ i
             </div>
         </div>
 
-        {/* CUSTOM REPORT BUTTON (Client Component) */}
         <RequestCustomReport report={report} />
 
-        {/* FOOTER */}
         <div className="text-center text-gray-400 text-xs mt-12 mb-8">
             <p className="mb-2">Verified on the <strong>QC Validator</strong> Distributed Ledger.</p>
             <a href="https://www.seosiri.com" className="text-indigo-500 hover:text-indigo-600 hover:underline transition-colors">

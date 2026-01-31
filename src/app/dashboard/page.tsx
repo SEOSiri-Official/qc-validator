@@ -98,6 +98,10 @@ agreementStatus?: 'pending_qc' | 'ready_to_sign' | 'party_a_signed' | 'completed
   
   // Lifecycle Status (Expanded)
   qcResult?: 'PASS' | 'FAIL' | 'CONDITIONAL'; 
+  productionDate?: string | null;
+  packagingType?: 'CARTON' | 'PALLET' | 'CRATE' | 'TAMPER_EVIDENT' | 'OTHER';
+  qcStatusInternal?: 'APPROVED' | 'CONDITIONAL' | 'REJECTED';
+  evidenceDetail?: string;
 }
 
 // --- 2. INTELLIGENT KNOWLEDGE BASE (International Mandatories) ---
@@ -275,7 +279,9 @@ const unsubscribeFromChecklistsRef = useRef<(() => void) | undefined>(undefined)
   const [items, setItems] = useState<ChecklistItem[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [barcodeInput, setBarcodeInput] = useState('');
-
+  const [productionDate, setProductionDate] = useState('');
+  const [packagingType, setPackagingType] = useState('CARTON');
+  const [qcStatusInternal, setQcStatusInternal] = useState('APPROVED');
   // -- Dashboard Data State --
   const [savedChecklists, setSavedChecklists] = useState<Checklist[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -1546,6 +1552,55 @@ if (loading) return (
                 placeholder="e.g. 50% Upfront, 50% on QC Pass"
                 className="w-full text-sm p-2 border rounded"
             />
+       {/* --- NEW: LOGISTICS & EVIDENCE DETAILS (Corrected) --- */}
+              <div className="space-y-4 p-4 border rounded-lg bg-gray-50 mt-4">
+                <h3 className="font-semibold text-gray-700 text-sm">Logistics & Traceability</h3>
+
+                {/* Production Date */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-600">Production/Assembly Date</label>
+                  <input
+                    type="date"
+                    name="productionDate"
+                    value={productionDate}
+                    onChange={(e) => setProductionDate(e.target.value)}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm text-sm"
+                  />
+                </div>
+
+                {/* Packaging Type */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-600">Packaging Type</label>
+                  <select
+                    name="packagingType"
+                    value={packagingType}
+                    onChange={(e) => setPackagingType(e.target.value)}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm text-sm"
+                  >
+                    <option value="CARTON">Standard Carton/Box</option>
+                    <option value="PALLET">Palletized (Shrink-wrapped)</option>
+                    <option value="CRATE">Crated (Wooden/Metal)</option>
+                    <option value="TAMPER_EVIDENT">Tamper-Evident Security Packaging</option>
+                    <option value="OTHER">Other / Bulk</option>
+                  </select>
+                </div>
+                 
+                {/* Final QC Status */}
+                 <div>
+                  <label className="block text-xs font-medium text-gray-600">Internal QC Status (Pre-Verification)</label>
+                  <select
+                    name="qcStatusInternal"
+                    value={qcStatusInternal}
+                    onChange={(e) => setQcStatusInternal(e.target.value)}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm text-sm"
+                  >
+                    <option value="APPROVED">APPROVED (Ready for shipment)</option>
+                    <option value="CONDITIONAL">CONDITIONAL (Requires rework)</option>
+                    <option value="REJECTED">REJECTED (Do not ship)</option>
+                  </select>
+                </div>
+              </div>
+              {/* --- END LOGISTICS SECTION --- */}
         </div>
     </div>
 </div>
