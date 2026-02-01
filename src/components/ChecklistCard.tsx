@@ -24,7 +24,30 @@ export default function ChecklistCard({ list, user, openCommunicationHub }: any)
     setTimeout(async () => {
         let newStatus = signer === 'A' ? 'party_a_signed' : 'completed';
         if (newStatus === 'completed') generatePDF();
-        await updateDoc(doc(db, "checklists", list.id), { agreementStatus: newStatus });
+        
+        // --- CRITICAL FIX: Send all existing data to satisfy isChecklistDataValid ---
+        const updatePayload: any = {
+            // Spreads all existing data fields (title, score, items, etc.)
+            ...list,
+            agreementStatus: newStatus,
+            
+            // Explicitly ensure new optional fields are included as null or their current value
+            productionDate: list.productionDate || null, 
+            packagingType: list.packagingType || null, 
+            qcStatusInternal: list.qcStatusInternal || null,
+            evidenceDetail: list.evidenceDetail || null,
+        };
+        
+        // Clean up fields that cause issues when written back (like the ID and complex message objects)
+        delete updatePayload.id; 
+        delete updatePayload.messages;
+        
+        // Ensure Timestamps (if present) are handled by the rule, or explicitly excluded/converted
+        // To be safe, we rely on the security rule allowing Timestamps in the payload.
+
+        await updateDoc(doc(db, "checklists", list.id), updatePayload);
+        // --- END CRITICAL FIX ---
+
         setSigningLoading(false);
     }, 1500); 
   };

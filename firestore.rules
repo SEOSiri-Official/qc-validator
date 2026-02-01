@@ -1,0 +1,176 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // --- HELPER FUNCTION: Admin Check ---
+    function isAdmin() {
+      return request.auth != null && (
+        request.auth.token.email == 'admin@seosiri.com' ||
+        request.auth.token.email == 'badhanpbn@gmail.com'
+      );
+    }
+// --- NEW HELPER FUNCTION FOR CHECKLIST DATA VALIDATION ---
+    function isChecklistDataValid(data) {
+      // This function checks that only allowed fields are being written.
+      let allowedFields = [
+        'uid', 'sellerEmail', 'title', 'type', 'industry', 'standard',
+        'businessModel', 'acceptanceScore', 'governingLaw', 'paymentCondition',
+        'buyerEmail', 'items', 'score', 'agreementStatus', 'createdAt',
+        'buyerUid', 'sellerAddress', 'buyerAddress', 'lastMeetingInitiator',
+        'activeMeetingPlatform', 'activeMeetingUrl', 'meetingStartedAt',
+        'agreementVersion', 'paymentTerms', 'liabilityClause',
+        // New Logistics Fields
+        'productionDate', 'packagingType', 'qcStatusInternal', 'evidenceDetail'
+      ];
+      return data.keys().hasOnly(allowedFields) &&
+             data.title is string &&
+             (data.productionDate is string || data.productionDate == null) &&
+             (data.packagingType is string || data.packagingType == null) &&
+             (data.qcStatusInternal is string || data.qcStatusInternal == null);
+    }
+    // --- 1. User Profiles ---
+    match /users/{userId} {
+      allow read: if true;
+      allow list: if isAdmin();
+      allow create: if true; 
+      allow update: if (request.auth != null && request.auth.uid == userId) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // --- 2. Checklists (Projects) - UPDATED SAFELY ---
+    match /checklists/{checklistId} {
+      // Any logged-in user can create a project, but the data must be valid.
+      allow create: if request.auth != null && isChecklistDataValid(request.resource.data);
+
+      // CRITICAL: Allow public GET for the /report/[id] page.
+      allow get: if true;
+
+      // READ (list view): Your existing logic is preserved.
+      allow list: if request.auth != null && (
+        request.auth.uid == resource.data.uid ||
+        request.auth.uid == resource.data.buyerUid ||
+        resource.data.agreementStatus == 'pending_buyer'
+      );
+      
+      // UPDATE: Your existing complex invite logic is preserved, with added data validation.
+      allow update: if request.auth != null && (
+        // Condition A: You are the Original Seller (Owner)
+        request.auth.uid == resource.data.uid ||
+        // Condition B: You are the Existing, Accepted Buyer
+        (request.auth.uid == resource.data.buyerUid) ||
+        // Condition C: INVITE ACCEPTANCE (The Fix)
+        (
+          resource.data.agreementStatus == 'pending_buyer' &&
+          request.auth.uid != resource.data.uid &&
+          request.auth.uid == request.resource.data.buyerUid &&
+          request.auth.token.email == request.resource.data.buyerEmail &&
+          request.resource.data.agreementStatus == 'ready_to_sign'
+        )
+      ) && isChecklistDataValid(request.resource.data); // <-- Safe validation added here
+
+      // DELETE: Your existing logic is preserved.
+      allow delete: if request.auth != null && request.auth.uid == resource.data.uid;
+    }
+
+    // --- 3. Newsletter Subscribers ---
+    match /subscribers/{subscriberId} {
+      allow create: if true; 
+      allow read, list: if isAdmin();
+      allow update, delete: if false; 
+    }
+    
+    // --- 4. Press Releases (Blog Posts) ---
+    match /press_releases/{postId} {
+      allow read: if true;
+      allow create: if request.auth != null;
+      allow update, delete: if (request.auth != null && request.auth.uid == resource.data.authorId) || isAdmin();
+    }
+
+    // --- 5. Marketplace Groups (Town Hall) ---
+    match /market_groups/{groupId} {
+      allow read: if true;
+      allow create: if request.auth != null;
+      allow update, delete: if (request.auth != null && request.auth.uid == resource.data.ownerId) || isAdmin();
+    }
+    
+    // --- 6. Marketplace Listings ---
+    match /market_listings/{listingId} {
+      allow read: if true; 
+      allow create: if request.auth != null;
+      allow update, delete: if (request.auth != null && request.auth.uid == resource.data.sellerId) || isAdmin();
+    }
+
+    // --- 7. Community Standards (SECURED) ---
+    match /nationalStandards/{standardId} {
+      // ANYONE can read the standards. This is essential for public access and SEO.
+      allow read: if true;
+
+      // Logged-in users can CREATE a standard, but only if they correctly assign themselves
+      // as the creator and initial endorser. This prevents tampered data submission.
+      allow create: if request.auth != null 
+                    && request.resource.data.createdBy == request.auth.uid
+                    && request.resource.data.endorsementCount == 1
+                    && request.resource.data.endorsedBy[0] == request.auth.uid;
+
+      // Logged-in users can UPDATE, but ONLY to endorse or un-endorse.
+      // This rule strictly prevents them from changing the countryName, params, etc.
+      // It only permits changes to endorsementCount and the endorsedBy list.
+      allow update: if request.auth != null
+                    // Rule 1: The count can only change by +1 or -1
+                    && (request.resource.data.endorsementCount == resource.data.endorsementCount + 1 || request.resource.data.endorsementCount == resource.data.endorsementCount - 1)
+                    // Rule 2: The list of endorsers can only have the current user added or removed
+                    && (request.resource.data.endorsedBy.hasAll(resource.data.endorsedBy) || resource.data.endorsedBy.hasAll(request.resource.data.endorsedBy));
+
+      // Only an Admin can delete a standard to prevent vandalism.
+      allow delete: if isAdmin();
+    }
+
+    // --- 8. Internal Notifications ---
+    match /notifications/{notificationId} {
+      // Allow user to read/clear their own notifications
+      allow read, update, delete: if request.auth != null && request.auth.uid == resource.data.recipientId;
+      
+      // FIX: Allow creation so InvitePage can notify the Seller
+      allow create: if request.auth != null;
+    }
+
+    // --- 9. Badges ---
+    match /badges/{badgeId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // --- 10. Sourcing Requests ---
+    match /sourcing_requests/{requestId} {
+      allow create: if true;
+      allow read, update, delete: if isAdmin();
+    }
+
+// --- 11. Dispute Resolution ---
+match /disputes/{disputeId} {
+  // Any logged-in user can create a dispute
+  allow create: if request.auth != null;
+  
+  // Allow READ if:
+  // 1. Document exists and user is buyer/seller/admin OR
+  // 2. Document doesn't exist yet (for dispute creation page)
+  allow read: if request.auth != null && (
+      !exists(/databases/$(database)/documents/disputes/$(disputeId)) ||
+      request.auth.uid == resource.data.buyerId ||
+      request.auth.uid == resource.data.sellerId ||
+      isAdmin()
+  );
+  
+ // --- THIS IS THE FIX ---
+      // Allow UPDATE only if document exists and user is authorized
+      // Removed the incorrect 'request.auth.uid == userId'
+      allow update: if request.auth != null && (
+          request.auth.uid == resource.data.buyerId ||
+          request.auth.uid == resource.data.sellerId ||
+          isAdmin()
+      );
+      
+      // Prevent accidental deletion
+      allow delete: if false;
+    }
+}}
