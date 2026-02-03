@@ -89,6 +89,7 @@ agreementStatus?: 'pending_qc' | 'ready_to_sign' | 'party_a_signed' | 'completed
   lastMeetingInitiator?: string;
   activeMeetingPlatform?: 'teams' | 'meet';
   activeMeetingUrl?: string;
+  
  // --- NEW: INTERNATIONAL STANDARD FIELDS ---
   agreementVersion: number; // e.g. 1
   acceptanceThreshold: number; // e.g. 100 or 95
@@ -282,6 +283,7 @@ const unsubscribeFromChecklistsRef = useRef<(() => void) | undefined>(undefined)
   const [productionDate, setProductionDate] = useState('');
   const [packagingType, setPackagingType] = useState('CARTON');
   const [qcStatusInternal, setQcStatusInternal] = useState('APPROVED');
+  
   // -- Dashboard Data State --
   const [savedChecklists, setSavedChecklists] = useState<Checklist[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -479,12 +481,27 @@ const fetchChecklists = useCallback((userId: string, userEmail: string | null) =
     const inviteQuery = userEmail ? query(collection(db, "checklists"), where("buyerEmail", "==", userEmail), where("agreementStatus", "==", "pending_buyer")) : null;
 
     const processSnapshot = (snapshot: any) => {
-        const newItems = snapshot.docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as Checklist));
+        const newItems = snapshot.docs.map((doc: any) => {
+            const data = doc.data();
+            // --- CRITICAL FIX: Convert Timestamps to JS Dates ---
+            return { 
+                id: doc.id, 
+                ...data,
+                // Ensure Timestamps are converted for consistent client-side use
+                createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : data.createdAt,
+                completedAt: data.completedAt?.toDate ? data.completedAt.toDate() : data.completedAt,
+                meetingStartedAt: data.meetingStartedAt?.toDate ? data.meetingStartedAt.toDate() : data.meetingStartedAt,
+            } as Checklist;
+        });
         
         setSavedChecklists(prev => {
             const combinedMap = new Map<string, Checklist>();
             [...prev, ...newItems].forEach(item => combinedMap.set(item.id, item));
-            return Array.from(combinedMap.values()).sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+            
+            // Note: If you convert to Dates, you must sort by Date methods, not seconds
+            return Array.from(combinedMap.values()).sort((a, b) => 
+                (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0)
+            );
         });
 
         // Notification Logic
