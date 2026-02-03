@@ -3,7 +3,6 @@ import { useState } from 'react';
 import { jsPDF } from 'jspdf';
 import { doc, updateDoc, collection, addDoc, serverTimestamp } from 'firebase/firestore'; 
 import { db } from '@/lib/firebase';
-import LogisticsFlow from '@/components/LogisticsFlow'; // <-- 1. IMPORT NEW COMPONENT
 
 export default function ChecklistCard({ list, user, openCommunicationHub }: any) {
   const [signingLoading, setSigningLoading] = useState(false);
@@ -66,9 +65,6 @@ export default function ChecklistCard({ list, user, openCommunicationHub }: any)
     return ['Amazon', 'Etsy', 'Local'];
   };
 
-  // Determine the status for the Logistics Flow
-  const agreementStatus = list.agreementStatus || 'pending';
-  const qcResult = list.score === 100 ? 'PASS' : 'CONDITIONAL'; // Simplified QC result based on score
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-6">
@@ -88,7 +84,9 @@ export default function ChecklistCard({ list, user, openCommunicationHub }: any)
       {list.score === 100 ? (
         <div className="p-6 bg-blue-50 border-t border-blue-100">
           <div className="mb-4">
-            <h4 className="text-indigo-900 font-bold text-sm mb-3">Workflow: {agreementStatus.toUpperCase()}</h4>
+            <h4 className="text-indigo-900 font-bold text-sm mb-3">
+  Workflow: {(list.agreementStatus || 'pending').toUpperCase()}
+</h4>
             <div className="flex gap-3 flex-wrap">
                 {user.email === list.sellerEmail && (!list.agreementStatus || list.agreementStatus === 'ready_to_sign') && (
                     <button onClick={() => handleSign('A')} disabled={signingLoading} className="bg-indigo-600 text-white px-4 py-2 rounded text-xs font-bold">Sign as Seller</button>
@@ -172,14 +170,37 @@ export default function ChecklistCard({ list, user, openCommunicationHub }: any)
                   {/* NOTE: Add a "Save Logistics Data" button here when implementing state */}
               </section>
           </div>
-          {/* ------------------------------------------------------------- */}
-          {/* --- 2. NEW LOGISTICS FLOW INTEGRATION --- */}
-          {/* Render the flow map for all successful projects (score=100) */}
-          <div className="mt-4 border-t border-blue-200 pt-4">
-            <LogisticsFlow finalStatus={agreementStatus as any} qcStatus={qcResult as any} />
-          </div>
-          {/* ----------------------------------------- */}
-
+{/* --- NEW: ENHANCED TRACEABILITY DATA DISPLAY (Uses Kept Data) --- */}
+          {/* We only show this if the score is 100% AND key logistics data exists */}
+          {list.score === 100 && (list.packagingType || list.qcStatusInternal) && (
+            <div className="mt-4 p-4 border-t border-blue-200 bg-white rounded-lg shadow-inner">
+              <h5 className="text-xs font-bold text-gray-700 uppercase mb-2">Traceability Snapshot</h5>
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div>
+                  <span className="text-gray-500 text-xs block">Internal QC</span>
+                  <span className="font-semibold text-green-700">{list.qcStatusInternal || 'N/A'}</span>
+                </div>
+                <div>
+                  <span className="text-gray-500 text-xs block">Packaging</span>
+                  <span className="font-semibold">{list.packagingType || 'N/A'}</span>
+                </div>
+                {list.productionDate && (
+                  <div>
+                    <span className="text-gray-500 text-xs block">Prod. Date</span>
+                    {/* Note: This assumes date is saved as YYYY-MM-DD string */}
+                    <span className="font-semibold">{list.productionDate}</span>
+                  </div>
+                )}
+                {list.evidenceDetail && (
+                  <div title={list.evidenceDetail}>
+                    <span className="text-gray-500 text-xs block">Evidence Notes</span>
+                    <span className="font-semibold truncate">{list.evidenceDetail}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+          {/* --- END ENHANCED TRACEABILITY --- */}
 
           <div className="flex justify-between items-start mt-4">
             <div className="flex gap-2">
@@ -196,7 +217,6 @@ export default function ChecklistCard({ list, user, openCommunicationHub }: any)
         <div className="p-4 bg-white">
           <p className="text-xs text-red-500 font-medium">⚠️ Action Required: Improve score to 100%.</p>
           {/* Display the QC_FAILURE flow for failed projects */}
-          <LogisticsFlow finalStatus={agreementStatus as any} qcStatus={'FAIL'} /> 
         </div>
       )}
     </div>

@@ -466,7 +466,7 @@ export default function AnalyticsPage() {
                             : "This is the most frequent reason your products are failing."}
                     </p>
                     
-                    {/* BYOK SELECTOR */}
+                    {/* BYOK SELECTOR AND INPUT */}
                     <div className="bg-white p-3 rounded-lg border border-red-100 mb-4 shadow-sm">
                         <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wide block mb-1">Select AI Expert (BYOK)</label>
                         <select 
@@ -478,6 +478,29 @@ export default function AnalyticsPage() {
                             <option value="Google AI">Google (Gemini)</option>
                             <option value="Anthropic">Anthropic (Claude)</option>
                         </select>
+                        
+                        {/* --- NEW: KEY INPUT SECTION --- */}
+                        {!availableKeys[selectedProvider] && (
+                            <div className="mt-3">
+                                <p className="text-xs text-red-500 mb-1">
+                                    No API Key found for {selectedProvider}.
+                                </p>
+                                <input
+                                    type="password"
+                                    placeholder={`Paste Your ${selectedProvider} API Key Here...`}
+                                    onBlur={(e) => {
+                                        // Save the key when user focuses away (onBlur)
+                                        const keyName = selectedProvider.toLowerCase().replace(' ', '_') + '_key';
+                                        if (e.target.value) {
+                                            localStorage.setItem(keyName, e.target.value);
+                                            setAvailableKeys(prev => ({ ...prev, [selectedProvider]: true }));
+                                        }
+                                    }}
+                                    className="w-full p-2 text-xs border border-red-300 rounded-md shadow-inner"
+                                />
+                            </div>
+                        )}
+                        {/* --- END NEW INPUT --- */}
                     </div>
 
                     <div className="space-y-3">
@@ -503,7 +526,6 @@ export default function AnalyticsPage() {
                         <Tooltip text="Open our specialized QC Assistant in ChatGPT (Free/Plus)">
                             <button 
                                 onClick={openChatGptAssistant}
-                                disabled={stats?.topFailure === 'N/A'}
                                 className="w-full bg-white text-gray-700 border border-gray-300 text-sm font-bold px-4 py-3 rounded-lg hover:bg-gray-50 hover:text-gray-900 transition-all shadow-sm flex items-center justify-center gap-2 group"
                             >
                                 <span className="group-hover:scale-110 transition-transform">🤖</span> Launch QC Assistant

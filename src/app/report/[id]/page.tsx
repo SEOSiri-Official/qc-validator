@@ -2,7 +2,6 @@ import { notFound } from 'next/navigation';
 import { db } from '@/lib/firebase-admin'; 
 import Link from 'next/link';
 import RequestCustomReport from '@/components/RequestCustomReport';
-import LogisticsFlow from '@/components/LogisticsFlow'; // <-- 1. NEW IMPORT
 
 export const dynamic = 'force-dynamic';
 
@@ -147,18 +146,6 @@ export default async function PublicReportPage({ params }: { params: Promise<{ i
                         </div>
                     </div>
                 )}
-
-                {/* --- 2. NEW LOGISTICS FLOWCHART (Public View) --- */}
-                {score === 100 && (
-                    <div className="mb-8 border-t border-gray-100 pt-6">
-                        <h4 className="text-sm font-bold text-gray-900 uppercase mb-4 flex items-center gap-2">
-                            🗺️ Chain of Custody & Delivery Protocol
-                        </h4>
-                        {/* We hardcode status to 'completed' for public reports to show the Success Flow */}
-                        <LogisticsFlow finalStatus="completed" qcStatus="PASS" />
-                    </div>
-                )}
-                {/* ------------------------------------------------ */}
 
 
                 {/* COMMERCIAL INFO */}
