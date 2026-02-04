@@ -1551,15 +1551,20 @@ if (loading) return (
                 type="number" 
                 placeholder="e.g. 100"
                 className="w-full text-sm p-2 border rounded"
-                // Bind to state...
+                value={acceptanceThreshold}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAcceptanceThreshold(Number(e.target.value))}
             />
         </div>
         <div>
             <label className="text-[10px] uppercase font-bold text-gray-500">Governing Law</label>
-            <select className="w-full text-sm p-2 border rounded">
+            <select 
+                className="w-full text-sm p-2 border rounded"
+                value={governingLaw}
+                onChange={(e) => setGoverningLaw(e.target.value)} // <-- HANDLER IS INSIDE TAG
+            >
                 <option>International Trade (Incoterms)</option>
-                <option>US Law</option>
-                <option>EU Law</option>
+                <option>US Law (Option)</option>
+                <option>EU Law (Option)</option>
             </select>
         </div>
         <div className="col-span-2">
@@ -1568,6 +1573,8 @@ if (loading) return (
                 type="text" 
                 placeholder="e.g. 50% Upfront, 50% on QC Pass"
                 className="w-full text-sm p-2 border rounded"
+                value={paymentTerms}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPaymentTerms(e.target.value)}
             />
        {/* --- NEW: LOGISTICS & EVIDENCE DETAILS (Corrected) --- */}
               <div className="space-y-4 p-4 border rounded-lg bg-gray-50 mt-4">
