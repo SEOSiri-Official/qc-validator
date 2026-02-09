@@ -539,7 +539,7 @@ const fetchChecklists = useCallback((userId: string, userEmail: string | null) =
   // We add the unstable `activeChatChecklist` to the dependency array.
   // This is technically not "perfect" React, but it will work and stop the infinite loop,
   // while preserving your auto-updating chat feature.
-  }, [setSavedChecklists, setActiveChatChecklist, setMeetingNotification, activeChatChecklist]); // Add state setters as dependencies
+  }, [setSavedChecklists, setActiveChatChecklist, setMeetingNotification]); // Add state setters as dependencies
 
   const fetchMyListings = useCallback(async (userId: string) => {
     if (!userId) return;
@@ -651,7 +651,7 @@ await setDoc(userRef, {
         unsubscribeFromChecklistsRef.current = undefined;
       }
     };
-  }, [user, fetchChecklists, fetchMyListings, fetchCommunityStandards, fetchWeeklySummary]); // Re-run when user changes
+  }, [user?.uid, user?.email, fetchChecklists, fetchMyListings, fetchCommunityStandards, fetchWeeklySummary]);// Re-run when user changes
 
 
 // --- Your other useEffect for chat scrolling remains the same ---
